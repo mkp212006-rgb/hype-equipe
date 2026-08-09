@@ -7,7 +7,8 @@ def localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withInputStream { localProperties.load(it) }
 }
-def configuredServerUrl = System.getenv("HYPE_SERVER_URL") ?: (localProperties.getProperty("HYPE_SERVER_URL") ?: "")
+def configuredServerUrl = System.getenv("HYPE_SERVER_URL")
+        ?: (localProperties.getProperty("HYPE_SERVER_URL") ?: (project.findProperty("HYPE_SERVER_URL") ?: ""))
 def escapedServerUrl = configuredServerUrl.replace("\\", "\\\\").replace('"', '\\"')
 
 android {

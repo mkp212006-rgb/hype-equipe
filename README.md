@@ -82,6 +82,8 @@ HYPE_SERVER_URL=https://seu-dominio.up.railway.app
 
 Depois use **Build > Generate Signed App Bundle or APK**. Guarde o keystore e sua senha em local seguro: ele é indispensável para publicar futuras atualizações do mesmo aplicativo.
 
+O workflow **Android APK** também gera automaticamente um APK de teste na primeira publicação do repositório. Ele serve para validação interna; para distribuição contínua, gere um APK de release assinado com o seu keystore permanente.
+
 O APK recebido estava assinado, mas não contém a chave privada original. Sem o keystore original, o Android não aceita a nova compilação como atualização por cima da instalação antiga. Nesse caso, desinstale o APK anterior antes de instalar o novo ou altere o `applicationId`.
 
 ## Testes
