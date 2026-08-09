@@ -14,5 +14,8 @@ test("signs, validates and rejects modified session tokens", () => {
   const secret = "x".repeat(48);
   const token = signToken({ sub: "admin", role: "admin", version: 1 }, secret, { ttlSeconds: 60 });
   assert.equal(verifyToken(token, secret).sub, "admin");
-  assert.throws(() => verifyToken(`${token.slice(0, -1)}a`, secret), /Token inválido/);
+  const replacement = token.endsWith("a") ? "b" : "a";
+  const modifiedToken = `${token.slice(0, -1)}${replacement}`;
+  assert.notEqual(modifiedToken, token);
+  assert.throws(() => verifyToken(modifiedToken, secret), /Token inválido/);
 });

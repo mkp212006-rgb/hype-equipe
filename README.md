@@ -12,6 +12,13 @@ Projeto recuperado do APK `Hype-Equipe.apk` e preparado para GitHub, Railway e A
 - healthcheck, Dockerfile, configuração Railway e testes automatizados;
 - fonte Android WebView recomposto.
 
+## Servidor em produção
+
+- Aplicativo: <https://hype-equipe-production.up.railway.app>
+- Healthcheck: <https://hype-equipe-production.up.railway.app/health>
+
+O Android 2.1.1 usa esse endereço por padrão. `HYPE_SERVER_URL` continua disponível para compilações que precisem apontar para outro ambiente.
+
 ## Segurança importante
 
 As variáveis `ADMIN_PASSWORD`, `JWT_SECRET` e `SMM_API_KEY` são segredos. Defina-as somente no Railway ou em um arquivo `.env` local, que já está bloqueado pelo `.gitignore`. Nunca coloque essas informações em commits, capturas de tela ou arquivos públicos.

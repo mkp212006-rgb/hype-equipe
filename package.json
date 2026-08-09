@@ -1,6 +1,6 @@
 {
   "name": "hype-equipe",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "type": "module",
   "description": "Backend seguro e aplicativo web/mobile do Hype Equipe.",
