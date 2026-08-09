@@ -18,11 +18,12 @@ function normalizeUrl(value, fallback) {
   const raw = String(value || fallback || "").trim().replace(/\/+$/, "");
   if (!raw) return "";
   const url = new URL(raw);
-  if (!["http:", "https:"].includes(url.protocol)) throw new Error("SMM_API_URL precisa usar HTTP ou HTTPS.");
+  if (!["http:", "https:"].includes(url.protocol)) throw new Error("A URL precisa usar HTTP ou HTTPS.");
   return url.toString().replace(/\/+$/, "");
 }
 
 export function loadConfig(env = process.env) {
+  const railwayPublicUrl = env.RAILWAY_PUBLIC_DOMAIN ? `https://${env.RAILWAY_PUBLIC_DOMAIN}` : "";
   const config = {
     nodeEnv: env.NODE_ENV || "development",
     port: integer(env.PORT, 3000, 1, 65_535),
@@ -32,10 +33,16 @@ export function loadConfig(env = process.env) {
     tokenTtlSeconds: integer(env.TOKEN_TTL_SECONDS, 43_200, 900, 604_800),
     adminUsername: String(env.ADMIN_USERNAME || "admin").trim(),
     adminPassword: String(env.ADMIN_PASSWORD || ""),
-    initialTeamCode: String(env.INITIAL_TEAM_CODE || ""),
     smmApiUrl: normalizeUrl(env.SMM_API_URL, "https://smmhype.com/api/v2"),
     smmApiKey: String(env.SMM_API_KEY || "").trim(),
     smmTimeoutMs: integer(env.SMM_TIMEOUT_MS, 20_000, 2_000, 60_000),
+    mercadoPagoAccessToken: String(env.MP_ACCESS_TOKEN || env.MERCADO_PAGO_ACCESS_TOKEN || "").trim(),
+    mercadoPagoWebhookSecret: String(env.MP_WEBHOOK_SECRET || env.MERCADO_PAGO_WEBHOOK_SECRET || "").trim(),
+    mercadoPagoTimeoutMs: integer(env.MP_TIMEOUT_MS, 20_000, 2_000, 60_000),
+    publicBaseUrl: normalizeUrl(
+      env.PUBLIC_BASE_URL,
+      railwayPublicUrl || "https://hype-equipe-production.up.railway.app",
+    ),
     allowedOrigins: String(env.ALLOWED_ORIGINS || "")
       .split(",")
       .map((item) => item.trim().replace(/\/+$/, ""))
@@ -48,9 +55,6 @@ export function loadConfig(env = process.env) {
   if (config.jwtSecret.length < 32) problems.push("JWT_SECRET deve ter pelo menos 32 caracteres");
   if (!config.adminUsername) problems.push("ADMIN_USERNAME não pode ficar vazio");
   if (config.adminPassword.length < 12) problems.push("ADMIN_PASSWORD deve ter pelo menos 12 caracteres");
-  if (config.initialTeamCode && config.initialTeamCode.length < 6) {
-    problems.push("INITIAL_TEAM_CODE deve ter pelo menos 6 caracteres ou ficar vazio");
-  }
   if (problems.length) throw new Error(`Configuração inválida: ${problems.join("; ")}.`);
   return config;
 }
