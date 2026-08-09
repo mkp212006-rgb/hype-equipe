@@ -1,0 +1,43 @@
+plugins {
+    id "com.android.application"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def configuredServerUrl = System.getenv("HYPE_SERVER_URL")
+        ?: (localProperties.getProperty("HYPE_SERVER_URL") ?: (project.findProperty("HYPE_SERVER_URL") ?: ""))
+def escapedServerUrl = configuredServerUrl.replace("\\", "\\\\").replace('"', '\\"')
+
+android {
+    namespace "com.hypeequipe.mobile"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.hypeequipe.mobile"
+        minSdk 24
+        targetSdk 35
+        versionCode 210
+        versionName "2.1.0"
+        buildConfigField "String", "HYPE_SERVER_URL", "\"${escapedServerUrl}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
