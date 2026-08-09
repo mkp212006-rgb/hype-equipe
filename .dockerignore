@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+test
+android
+*.apk
+*.jks
+*.keystore
+.env*
+README.md

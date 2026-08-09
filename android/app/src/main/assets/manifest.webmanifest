@@ -1,0 +1,17 @@
+{
+  "name": "Hype Equipe",
+  "short_name": "Hype Equipe",
+  "description": "Pedidos e acompanhamento da operação Hype Equipe.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07141b",
+  "theme_color": "#07141b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
