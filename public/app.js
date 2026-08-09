@@ -1,22 +1,22 @@
 (function () {
   "use strict";
 
-  const SESSION_KEY = "hype-equipe.session.v3";
-  const API_URL_KEY = "hype-equipe.api-url.v3";
-  const EMBEDDED_API_URL = "__HYPE_API_URL__";
-  const SAME_ORIGIN_API_URL = ["http:", "https:"].includes(window.location.protocol) ? window.location.origin : "";
-  const DEFAULT_API_URL = EMBEDDED_API_URL.startsWith("https://") ? EMBEDDED_API_URL : SAME_ORIGIN_API_URL;
+  const SESSION_KEY = "hype-equipe.session.v2";
+  const DEFAULT_API_URL = "https://hype-equipe-production.up.railway.app";
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
 
   const state = {
     screen: "loading",
-    apiUrl: localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL,
+    apiUrl: DEFAULT_API_URL,
     session: loadJson(SESSION_KEY),
     services: [],
     orders: [],
     balance: null,
+    wallet: null,
+    walletSupported: true,
     adminSummary: null,
+    registrationUsername: "",
     error: "",
   };
 
@@ -128,11 +128,10 @@
     return new ApiClient(state.apiUrl, withoutToken ? null : state.session && state.session.token);
   }
 
-  function saveSession(session, apiUrl) {
+  function saveSession(session) {
     state.session = session;
-    state.apiUrl = normalizeApiUrl(apiUrl || state.apiUrl);
+    state.apiUrl = DEFAULT_API_URL;
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    localStorage.setItem(API_URL_KEY, state.apiUrl);
   }
 
   function clearSession() {
@@ -140,6 +139,8 @@
     state.services = [];
     state.orders = [];
     state.balance = null;
+    state.wallet = null;
+    state.walletSupported = true;
     state.adminSummary = null;
     localStorage.removeItem(SESSION_KEY);
   }
@@ -178,6 +179,7 @@
       ["home", "Início", "home"],
       ["new-order", "Pedido", "plus"],
       ["orders", "Histórico", "receipt"],
+      ["wallet", "Carteira", "wallet"],
       ["settings", "Ajustes", "settings"],
     ];
     return `
@@ -197,47 +199,110 @@
   }
 
   function renderLogin(adminMode) {
-    const title = adminMode ? "Acesso administrativo" : "Acesso da equipe";
-    const subtitle = adminMode
-      ? "Entre para cadastrar os IDs dos serviços e administrar o catálogo compartilhado."
-      : "Entre com seu nome e o código interno para solicitar produtos e acompanhar pedidos reais.";
-    const fields = adminMode
-      ? `
-        <label class="field"><span class="field-label">Usuário administrativo</span><input class="field-control" name="username" autocomplete="username" placeholder="admin" required /></label>
-        <label class="field"><span class="field-label">Senha administrativa</span><input class="field-control" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required /></label>`
-      : `
-        <label class="field"><span class="field-label">Seu nome</span><input class="field-control" name="name" autocomplete="name" placeholder="Ex.: Ítalo" required /></label>
-        <label class="field"><span class="field-label">Código da equipe</span><input class="field-control" name="accessCode" type="password" autocomplete="current-password" placeholder="Código compartilhado" required /></label>`;
+    if (adminMode) {
+      app.innerHTML = shell(`
+        ${brand()}
+        <section class="auth-hero">
+          <div class="eyebrow">Área restrita</div>
+          <h1>Acesso administrativo</h1>
+          <p class="subtitle">Entre para administrar o catálogo e a operação.</p>
+        </section>
+        <form class="card form-stack" data-form="admin-login">
+          <label class="field"><span class="field-label">Usuário administrativo</span><input class="field-control" name="username" autocomplete="username" placeholder="Usuário" required /></label>
+          <label class="field"><span class="field-label">Senha administrativa</span><input class="field-control" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required /></label>
+          <div class="notice">${icon("shield")} <span>Conexão segura configurada automaticamente.</span></div>
+          <button class="button button-primary" type="submit">${icon("shield")} Entrar como administrador</button>
+        </form>
+        <div class="auth-switch"><button type="button" data-action="member-login-screen">Voltar ao login</button></div>
+      `, false);
+      return;
+    }
 
-    const fixedServer = Boolean(DEFAULT_API_URL);
     app.innerHTML = shell(`
       ${brand()}
       <section class="auth-hero">
-        <div class="eyebrow">Operação conectada</div>
-        <h1>${title}</h1>
-        <p class="subtitle">${subtitle}</p>
+        <div class="eyebrow">Sua conta Hype</div>
+        <h1>Entrar</h1>
+        <p class="subtitle">Use o usuário e a senha que você cadastrou para acessar sua carteira e fazer pedidos.</p>
       </section>
-      <form class="card form-stack" data-form="${adminMode ? "admin-login" : "member-login"}">
-        ${fields}
-        <label class="field">
-          <span class="field-label">Endereço do servidor</span>
-          <input class="field-control" name="apiUrl" type="url" inputmode="url" value="${escapeHtml(state.apiUrl)}" placeholder="https://api.seudominio.com" ${fixedServer ? "readonly" : ""} required />
-          <span class="helper">${fixedServer ? "Servidor oficial configurado no aplicativo." : "Informe o domínio HTTPS gerado pelo Railway."} A chave da SMMHype fica protegida no servidor.</span>
-        </label>
-        <button class="button button-primary" type="submit">${icon(adminMode ? "shield" : "user")} ${adminMode ? "Entrar como administrador" : "Entrar na equipe"}</button>
+      <form class="card form-stack" data-form="member-login">
+        <label class="field"><span class="field-label">Usuário</span><input class="field-control" name="username" autocomplete="username" value="${escapeHtml(state.registrationUsername || "")}" placeholder="Seu usuário" minlength="3" required /></label>
+        <label class="field"><span class="field-label">Senha</span><input class="field-control" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" minlength="6" required /></label>
+        <div class="notice">${icon("shield")} <span>O servidor é configurado de fábrica e não aparece nesta tela.</span></div>
+        <button class="button button-primary" type="submit">${icon("user")} Entrar na minha conta</button>
       </form>
-      <div class="auth-switch"><button type="button" data-action="${adminMode ? "member-login-screen" : "admin-login-screen"}">${adminMode ? "Voltar ao acesso da equipe" : "Acesso administrativo"}</button></div>
+      <div class="auth-switch"><button type="button" data-action="register-screen">Ainda não tenho conta • Criar cadastro</button></div>
+      <div class="auth-switch"><button type="button" data-action="admin-login-screen">Acesso administrativo</button></div>
     `, false);
   }
 
-  function money(value, currency) {
+  function renderRegister() {
+    app.innerHTML = shell(`
+      ${brand()}
+      <section class="auth-hero">
+        <div class="eyebrow">Novo cadastro</div>
+        <h1>Criar conta</h1>
+        <p class="subtitle">Cadastre seus dados. Depois do registro, volte ao login e entre com o mesmo usuário e senha.</p>
+      </section>
+      <form class="card form-stack" data-form="member-register">
+        <label class="field"><span class="field-label">Nome</span><input class="field-control" name="name" autocomplete="name" placeholder="Seu nome" minlength="2" required /></label>
+        <label class="field"><span class="field-label">Usuário</span><input class="field-control" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Crie um usuário" minlength="3" maxlength="32" required /><span class="helper">Use pelo menos 3 caracteres.</span></label>
+        <label class="field"><span class="field-label">Senha</span><input class="field-control" name="password" type="password" autocomplete="new-password" placeholder="Crie uma senha" minlength="6" required /></label>
+        <label class="field"><span class="field-label">Confirmar senha</span><input class="field-control" name="confirmPassword" type="password" autocomplete="new-password" placeholder="Digite a senha novamente" minlength="6" required /></label>
+        <div class="notice">${icon("wallet")} <span>Sua carteira começa em R$ 0,00. Não existe saldo bônus.</span></div>
+        <button class="button button-primary" type="submit">${icon("check")} Criar minha conta</button>
+      </form>
+      <div class="auth-switch"><button type="button" data-action="member-login-screen">Já tenho cadastro • Fazer login</button></div>
+    `, false);
+  }
+
+  function money(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return "—";
     try {
-      return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "USD" }).format(number);
+      return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(number);
     } catch {
-      return `${currency || "USD"} ${number.toFixed(2)}`;
+      return `R$ ${number.toFixed(2).replace(".", ",")}`;
     }
+  }
+
+  function firstNumber() {
+    for (let i = 0; i < arguments.length; i += 1) {
+      const number = Number(arguments[i]);
+      if (Number.isFinite(number)) return number;
+    }
+    return NaN;
+  }
+
+  function serviceRateBRL(service) {
+    return firstNumber(
+      service && service.pricePerThousandBRL,
+      service && service.adminRateBRL,
+      service && service.customerRateBRL,
+      service && service.saleRateBRL,
+      service && service.priceBRL,
+      service && service.rateBRL,
+      service && service.brlRate,
+      service && service.saleRate,
+      service && service.rate
+    );
+  }
+
+  function providerRateBRL(service) {
+    return firstNumber(
+      service && service.providerRateBRL,
+      service && service.providerPriceBRL,
+      service && service.costRateBRL,
+      service && service.costBRL,
+      service && service.originalRateBRL,
+      service && service.rateBRL,
+      service && service.brlRate,
+      service && service.rate
+    );
+  }
+
+  function orderChargeBRL(order) {
+    return firstNumber(order && order.chargeBRL, order && order.amountBRL, order && order.priceBRL, order && order.estimatedChargeBRL, order && order.estimatedCharge, order && order.charge);
   }
 
   function dateTime(value) {
@@ -257,8 +322,6 @@
       canceled: "Cancelado",
       cancelled: "Cancelado",
       "cancel requested": "Cancelamento solicitado",
-      submitting: "Enviando",
-      "refill requested": "Reposição solicitada",
       error: "Erro",
     };
     return labels[key] || status || "Pendente";
@@ -290,7 +353,7 @@
         </div>
         <div class="order-details">
           <div class="detail"><div class="detail-label">Quantidade</div><div class="detail-value">${escapeHtml(order.quantity)}</div></div>
-          <div class="detail"><div class="detail-label">Custo estimado</div><div class="detail-value">${money(order.estimatedCharge, order.currency)}</div></div>
+          <div class="detail"><div class="detail-label">Custo estimado</div><div class="detail-value">${money(orderChargeBRL(order))}</div></div>
           ${compact ? "" : `<div class="detail"><div class="detail-label">Restante</div><div class="detail-value">${escapeHtml(order.remains == null ? "—" : order.remains)}</div></div><div class="detail"><div class="detail-label">Solicitado por</div><div class="detail-value">${escapeHtml(order.createdBy)}</div></div>`}
         </div>
         ${actions}
@@ -306,7 +369,8 @@
       ${topbar(`Olá, ${state.session.member || "equipe"}`)}
       <section class="page-heading"><h1>Visão geral</h1><p class="subtitle">Acompanhe a operação e envie pedidos diretamente à SMMHype.</p></section>
       <section class="card balance-card">
-        <div class="balance-row"><div><div class="balance-label">SALDO DISPONÍVEL</div><div class="balance-value">${state.balance ? money(state.balance.balance, state.balance.currency) : "—"}</div></div><span class="live-pill"><i class="live-dot"></i> REAL</span></div>
+        <div class="balance-row"><div><div class="balance-label">MINHA CARTEIRA</div><div class="balance-value">${state.wallet ? money(state.wallet.balance) : "—"}</div></div><span class="live-pill"><i class="live-dot"></i> SALDO</span></div>
+        <button type="button" class="wallet-inline-button" data-nav="wallet">${icon("plus")} Adicionar saldo</button>
       </section>
       <div class="metrics"><div class="metric"><div class="metric-value">${state.orders.length}</div><div class="metric-label">Pedidos</div></div><div class="metric"><div class="metric-value">${active}</div><div class="metric-label">Em andamento</div></div></div>
       <button type="button" class="primary-action" data-nav="new-order"><span class="action-icon">${icon("plus")}</span><span><strong>Novo pedido</strong><span>Escolha o serviço, confira o custo e confirme.</span></span></button>
@@ -328,8 +392,8 @@
           <label class="field"><span class="field-label">Produto disponível</span><select class="field-control" name="serviceId" data-order-service required>${options}</select><span class="helper" data-service-helper>Mínimo ${escapeHtml(first.min)} • Máximo ${escapeHtml(first.max)} • ${escapeHtml(first.category)}</span></label>
           <label class="field"><span class="field-label">Link do perfil ou publicação</span><input class="field-control" name="link" type="url" inputmode="url" placeholder="https://instagram.com/..." required /></label>
           <label class="field"><span class="field-label">Quantidade</span><input class="field-control" name="quantity" type="number" inputmode="numeric" min="${escapeHtml(first.min)}" max="${escapeHtml(first.max)}" placeholder="${escapeHtml(first.min)}" data-order-quantity required /></label>
-          <div class="cost-preview"><strong data-cost-preview>—</strong><span>Estimativa com base na tarifa atual da SMMHype. O valor final aparece no status do pedido.</span></div>
-          <div class="notice">${icon("shield")} <span>Este pedido é real e pode descontar o saldo da conta. Confira o link e a quantidade antes de enviar.</span></div>
+          <div class="cost-preview"><strong data-cost-preview>—</strong><span>Valor estimado em Real brasileiro. O servidor confere o valor final e o saldo da sua carteira antes de enviar.</span></div>
+          <div class="notice">${icon("shield")} <span>O pedido só deve ser liberado pelo servidor quando houver saldo individual suficiente na carteira.</span></div>
           <button class="button button-primary" type="submit">${icon("check")} Revisar e enviar</button>
         </form>` : `
         <div class="card empty-state"><div class="empty-icon">${icon("box")}</div><h3>Nenhum produto disponível</h3><p>Peça ao administrador para entrar no painel e cadastrar o ID de um serviço da SMMHype.</p></div>`}
@@ -345,17 +409,57 @@
     `, true);
   }
 
+  function renderWallet() {
+    const wallet = state.wallet || { balance: 0, currency: "BRL", transactions: [] };
+    const transactions = Array.isArray(wallet.transactions) ? wallet.transactions : [];
+    const statusNote = state.walletSupported
+      ? `<div class="notice wallet-ok">${icon("shield")} <span>O saldo só é liberado depois que o servidor confirma o pagamento no Mercado Pago.</span></div>`
+      : `<div class="notice wallet-warning">${icon("shield")} <span>A carteira visual está pronta, mas o servidor ainda precisa habilitar os endpoints financeiros para aceitar depósitos e usar o saldo nos pedidos.</span></div>`;
+    app.innerHTML = shell(`
+      ${topbar("Minha carteira")}
+      <section class="page-heading"><h1>Carteira</h1><p class="subtitle">Use seu saldo para pagar os pedidos da sua conta.</p></section>
+      <section class="card balance-card wallet-hero">
+        <div class="balance-row"><div><div class="balance-label">SALDO DISPONÍVEL</div><div class="balance-value">${money(wallet.balance)}</div></div><span class="live-pill"><i class="live-dot"></i> INDIVIDUAL</span></div>
+      </section>
+      <section class="card wallet-deposit-card">
+        <div class="section-heading"><h2>Adicionar saldo</h2></div>
+        <form class="form-stack" data-form="wallet-deposit">
+          <label class="field"><span class="field-label">Valor que deseja receber na carteira</span><input class="field-control" name="amount" type="number" inputmode="decimal" min="1" step="0.01" placeholder="Ex.: 20,00" data-wallet-amount required /><span class="helper">É cobrada uma taxa de 5% sobre cada depósito.</span></label>
+          <div class="wallet-fee-preview">
+            <div><span>Crédito na carteira</span><strong data-wallet-credit>R$ 0,00</strong></div>
+            <div><span>Taxa de 5%</span><strong data-wallet-fee>R$ 0,00</strong></div>
+            <div class="wallet-total"><span>Total a pagar</span><strong data-wallet-total>R$ 0,00</strong></div>
+          </div>
+          ${statusNote}
+          <button class="button button-primary" type="submit" ${state.walletSupported ? "" : "disabled"}>${icon("wallet")} Pagar com Mercado Pago</button>
+        </form>
+      </section>
+      <div class="section-heading"><h2>Movimentações</h2><button type="button" data-action="refresh-wallet">Atualizar</button></div>
+      ${transactions.length ? `<div class="wallet-transactions">${transactions.map(walletTransactionCard).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("wallet")}</div><h3>Nenhuma movimentação</h3><p>Seus depósitos e pagamentos de pedidos aparecerão aqui.</p></div>`}
+    `, true);
+    updateWalletPreview();
+  }
+
+  function walletTransactionCard(item) {
+    const type = String(item.type || item.kind || "movimentação");
+    const isDebit = type.toLowerCase().includes("debit") || type.toLowerCase().includes("pedido") || Number(item.amount) < 0;
+    const amount = Math.abs(Number(item.amount || item.value || 0));
+    const labelMap = { deposit: "Depósito", credit: "Crédito", debit: "Pedido", order: "Pedido", refund: "Estorno" };
+    const label = labelMap[type.toLowerCase()] || item.description || "Movimentação";
+    return `<article class="card wallet-transaction"><div><strong>${escapeHtml(label)}</strong><span>${dateTime(item.createdAt || item.date)}</span></div><b class="${isDebit ? "wallet-debit" : "wallet-credit"}">${isDebit ? "−" : "+"}${money(amount)}</b></article>`;
+  }
+
   function renderSettings() {
     app.innerHTML = shell(`
       ${topbar("Configurações")}
-      <section class="page-heading"><h1>Ajustes</h1><p class="subtitle">Dados da sessão e conexão segura do aplicativo.</p></section>
+      <section class="page-heading"><h1>Ajustes</h1><p class="subtitle">Dados da sessão e segurança do aplicativo.</p></section>
       <section class="card settings-list">
-        <div class="setting-item"><div class="setting-icon">${icon("user")}</div><div><h3>Membro conectado</h3><p>${escapeHtml(state.session.member)} • acesso da equipe</p></div></div>
-        <div class="setting-item"><div class="setting-icon">${icon("server")}</div><div><h3>Servidor da operação</h3><p>${escapeHtml(state.apiUrl)}</p></div></div>
-        <div class="setting-item"><div class="setting-icon">${icon("shield")}</div><div><h3>Chave protegida</h3><p>A chave da SMMHype fica somente no backend e não está salva neste APK.</p></div></div>
+        <div class="setting-item"><div class="setting-icon">${icon("user")}</div><div><h3>Conta conectada</h3><p>${escapeHtml(state.session.username || state.session.member || "usuário")}</p></div></div>
+        <div class="setting-item"><div class="setting-icon">${icon("wallet")}</div><div><h3>Carteira individual</h3><p>Saldo vinculado à sua conta e atualizado somente após confirmação de pagamento.</p></div></div>
+        <div class="setting-item"><div class="setting-icon">${icon("shield")}</div><div><h3>Conexão protegida</h3><p>Credenciais privadas e validações financeiras ficam somente no backend.</p></div></div>
       </section>
       <button type="button" class="button button-secondary mt-16" data-action="reload-data">${icon("refresh")} Atualizar dados</button>
-      <button type="button" class="button button-danger mt-12" data-action="logout">${icon("logout")} Sair da conta da equipe</button>
+      <button type="button" class="button button-danger mt-12" data-action="logout">${icon("logout")} Sair da conta</button>
     `, true);
   }
 
@@ -364,12 +468,10 @@
     const services = state.services;
     app.innerHTML = `<div class="app-shell no-nav"><main class="page">
       ${topbar("Administração")}
-      <section class="page-heading"><h1>Painel administrativo</h1><p class="subtitle">Cadastre apenas o ID do serviço. Os demais dados são buscados diretamente na SMMHype.</p></section>
+      <section class="page-heading"><h1>Painel administrativo</h1><p class="subtitle">Cadastre os serviços e defina quanto o cliente pagará a cada 1.000 unidades.</p></section>
       <div class="admin-banner">${icon("shield")} <span>Modo administrador • catálogo compartilhado com todos os celulares</span></div>
-      ${summary.mustChangePassword ? `<div class="notice mb-14">${icon("lock")} <span>Por segurança, altere a senha administrativa inicial antes de liberar o acesso da equipe.</span></div>` : ""}
-      ${summary.providerError ? `<div class="notice mb-14">${icon("server")} <span>Integração SMMHype: ${escapeHtml(summary.providerError)}</span></div>` : ""}
       <section class="card balance-card">
-        <div class="balance-row"><div><div class="balance-label">SALDO SMMHYPE</div><div class="balance-value">${summary.balance != null ? money(summary.balance, summary.currency) : "—"}</div></div><span class="live-pill"><i class="live-dot"></i> API</span></div>
+        <div class="balance-row"><div><div class="balance-label">SALDO SMMHYPE</div><div class="balance-value">${summary.balance != null ? money(summary.balanceBRL != null ? summary.balanceBRL : summary.balance) : "—"}</div></div><span class="live-pill"><i class="live-dot"></i> API</span></div>
       </section>
       <div class="metrics"><div class="metric"><div class="metric-value">${summary.enabledServices == null ? "—" : summary.enabledServices}</div><div class="metric-label">Produtos ativos</div></div><div class="metric"><div class="metric-value">${summary.orders == null ? "—" : summary.orders}</div><div class="metric-label">Pedidos enviados</div></div></div>
 
@@ -377,6 +479,7 @@
         <div class="section-heading"><h2>Adicionar produto</h2></div>
         <form class="form-stack" data-form="add-service">
           <label class="field"><span class="field-label">ID do serviço na SMMHype</span><input class="field-control" name="serviceId" type="number" inputmode="numeric" min="1" placeholder="Ex.: 1234" required /><span class="helper">O backend valida o ID e importa nome, categoria, tarifa, mínimo e máximo automaticamente.</span></label>
+          <label class="field"><span class="field-label">Preço cobrado por 1.000</span><input class="field-control" name="pricePerThousandBRL" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="Ex.: 15,90" required /><span class="helper">Valor em Real brasileiro que o usuário pagará por cada 1.000 unidades.</span></label>
           <button class="button button-primary" type="submit">${icon("plus")} Validar e adicionar</button>
         </form>
       </section>
@@ -384,33 +487,24 @@
       <div class="section-heading"><h2>Produtos cadastrados</h2><button type="button" data-action="admin-reload">Atualizar</button></div>
       ${services.length ? `<div class="service-list">${services.map(serviceCard).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("box")}</div><h3>Catálogo vazio</h3><p>Digite acima o primeiro ID de serviço disponibilizado pela sua conta SMMHype.</p></div>`}
 
-      <section class="card mt-20">
-        <div class="section-heading"><h2>Senha administrativa</h2></div>
-        <form class="form-stack" data-form="admin-password">
-          <label class="field"><span class="field-label">Senha atual</span><input class="field-control" name="currentPassword" type="password" autocomplete="current-password" required /></label>
-          <label class="field"><span class="field-label">Nova senha</span><input class="field-control" name="newPassword" type="password" minlength="12" autocomplete="new-password" placeholder="Mínimo de 12 caracteres" required /></label>
-          <label class="field"><span class="field-label">Confirmar nova senha</span><input class="field-control" name="confirmPassword" type="password" minlength="12" autocomplete="new-password" required /></label>
-          <button class="button button-secondary" type="submit">${icon("lock")} Alterar senha</button>
-        </form>
-      </section>
-
-      <section class="card mt-20">
-        <div class="section-heading"><h2>Código da equipe</h2></div>
-        <form class="form-stack" data-form="team-code">
-          <label class="field"><span class="field-label">Novo código compartilhado</span><input class="field-control" name="newCode" type="password" minlength="6" autocomplete="new-password" placeholder="Mínimo de 6 caracteres" required /><span class="helper">Todos os membros conectados precisarão entrar novamente.</span></label>
-          <button class="button button-secondary" type="submit">${icon("key")} Alterar código</button>
-        </form>
-      </section>
       <button type="button" class="button button-danger mt-16" data-action="logout">${icon("logout")} Sair da administração</button>
     </main></div>`;
   }
 
   function serviceCard(service) {
+    const sellingRate = serviceRateBRL(service);
+    const providerRate = providerRateBRL(service);
+    const sellingValue = Number.isFinite(sellingRate) ? Number(sellingRate).toFixed(2) : "";
+    const providerText = Number.isFinite(providerRate) ? money(providerRate) : "—";
     return `
       <article class="card service-card">
         <div class="service-head"><span class="id-pill">ID ${service.service}</span><button type="button" class="toggle-button ${service.enabled ? "enabled" : ""}" data-action="toggle-service" data-id="${service.service}" data-enabled="${service.enabled ? "true" : "false"}">${service.enabled ? "ATIVO" : "PAUSADO"}</button></div>
         <div class="service-title mt-12">${escapeHtml(service.name)}</div>
-        <div class="service-meta">${escapeHtml(service.category)} • ${escapeHtml(service.type)}<br>Tarifa ${money(service.rate, "USD")} / 1.000 • mínimo ${escapeHtml(service.min)} • máximo ${escapeHtml(service.max)}</div>
+        <div class="service-meta">${escapeHtml(service.category)} • ${escapeHtml(service.type)}<br>Tarifa do fornecedor: ${providerText} / 1.000 • mínimo ${escapeHtml(service.min)} • máximo ${escapeHtml(service.max)}</div>
+        <form class="service-price-form" data-form="service-price" data-service-id="${service.service}">
+          <label class="field service-price-field"><span class="field-label">Preço cobrado por 1.000</span><div class="money-input-wrap"><span>R$</span><input class="field-control" name="pricePerThousandBRL" type="number" inputmode="decimal" min="0.01" step="0.01" value="${escapeHtml(sellingValue)}" placeholder="0,00" required /></div><span class="helper">Este é o preço usado no cálculo da carteira e mostrado aos usuários.</span></label>
+          <button type="submit" class="button button-primary button-small">${icon("check")} Salvar preço</button>
+        </form>
         <div class="order-actions"><button type="button" class="button button-secondary button-small" data-action="sync-service" data-id="${service.service}">${icon("refresh")} Sincronizar</button><button type="button" class="button button-danger button-small" data-action="remove-service" data-id="${service.service}">${icon("trash")} Remover</button></div>
       </article>`;
   }
@@ -418,16 +512,19 @@
   function render() {
     if (state.screen === "loading") return renderLoading();
     if (state.screen === "login") return renderLogin(false);
+    if (state.screen === "register") return renderRegister();
     if (state.screen === "admin-login") return renderLogin(true);
     if (state.screen === "admin") return renderAdmin();
     if (state.screen === "new-order") return renderNewOrder();
     if (state.screen === "orders") return renderOrders();
+    if (state.screen === "wallet") return renderWallet();
     if (state.screen === "settings") return renderSettings();
     return renderHome();
   }
 
   async function bootstrap() {
-    if (!state.session || !state.apiUrl) {
+    state.apiUrl = DEFAULT_API_URL;
+    if (!state.session) {
       clearSession();
       state.screen = "login";
       return render();
@@ -437,7 +534,6 @@
       const info = await client().request("/api/info");
       state.session.member = info.member;
       state.session.role = info.role;
-      state.session.mustChangePassword = Boolean(info.mustChangePassword);
       localStorage.setItem(SESSION_KEY, JSON.stringify(state.session));
       if (info.role === "admin") {
         await loadAdminData();
@@ -455,14 +551,22 @@
   }
 
   async function loadMemberData() {
-    const results = await Promise.all([
+    const core = await Promise.all([
       client().request("/api/services"),
       client().request("/api/orders"),
       client().request("/api/balance"),
     ]);
-    state.services = results[0];
-    state.orders = results[1];
-    state.balance = results[2];
+    state.services = core[0];
+    state.orders = core[1];
+    state.balance = core[2];
+    try {
+      state.wallet = await client().request("/api/wallet");
+      state.walletSupported = true;
+    } catch (error) {
+      if (error.status !== 404) throw error;
+      state.walletSupported = false;
+      state.wallet = { balance: 0, currency: "BRL", transactions: [] };
+    }
   }
 
   async function loadAdminData() {
@@ -498,29 +602,56 @@
     const submit = form.querySelector('button[type="submit"]');
     buttonBusy(submit, true);
     try {
+      if (type === "member-register") {
+        state.apiUrl = DEFAULT_API_URL;
+        const username = String(values.username || "").trim();
+        const password = String(values.password || "");
+        if (username.length < 3) throw new Error("O usuário precisa ter pelo menos 3 caracteres.");
+        if (password.length < 6) throw new Error("A senha precisa ter pelo menos 6 caracteres.");
+        if (password !== String(values.confirmPassword || "")) throw new Error("As senhas não coincidem.");
+        await client(true).request("/auth/register", {
+          method: "POST",
+          body: { name: String(values.name || "").trim(), username, password },
+        });
+        state.registrationUsername = username;
+        state.screen = "login";
+        render();
+        toast("Cadastro criado. Agora entre com seu usuário e senha.");
+        return;
+      }
+
       if (type === "member-login") {
-        const apiUrl = normalizeApiUrl(values.apiUrl);
-        state.apiUrl = apiUrl;
+        state.apiUrl = DEFAULT_API_URL;
+        const username = String(values.username || "").trim();
         const response = await client(true).request("/auth/login", {
           method: "POST",
-          body: { name: values.name, accessCode: values.accessCode },
+          body: { username, password: values.password },
         });
-        saveSession(response, apiUrl);
+        const user = response.user || response.account || {};
+        const session = {
+          ...response,
+          token: response.token || response.accessToken,
+          member: response.member || user.name || user.username || username,
+          username: response.username || user.username || username,
+          role: response.role || user.role || "member",
+        };
+        if (!session.token) throw new Error("O servidor não retornou uma sessão válida.");
+        saveSession(session);
+        state.registrationUsername = "";
         await loadMemberData();
         state.screen = "home";
         render();
-        toast("Acesso realizado. O aplicativo está conectado à operação real.");
+        toast("Login realizado com sucesso.");
         return;
       }
 
       if (type === "admin-login") {
-        const apiUrl = normalizeApiUrl(values.apiUrl);
-        state.apiUrl = apiUrl;
+        state.apiUrl = DEFAULT_API_URL;
         const response = await client(true).request("/admin/login", {
           method: "POST",
           body: { username: values.username, password: values.password },
         });
-        saveSession(response, apiUrl);
+        saveSession(response);
         await loadAdminData();
         state.screen = "admin";
         render();
@@ -528,26 +659,13 @@
         return;
       }
 
-      if (type === "admin-password") {
-        if (values.newPassword !== values.confirmPassword) throw new Error("A confirmação da nova senha não confere.");
-        if (!window.confirm("Alterar a senha administrativa agora?")) return;
-        const response = await client().request("/admin/password", {
-          method: "POST",
-          body: { currentPassword: values.currentPassword, newPassword: values.newPassword },
-        });
-        saveSession(response, state.apiUrl);
-        await loadAdminData();
-        render();
-        toast("Senha administrativa alterada com segurança.");
-        return;
-      }
-
       if (type === "new-order") {
+        if (!state.walletSupported) throw new Error("A carteira ainda não foi habilitada no servidor. O pedido não será enviado até o saldo individual estar protegido no backend.");
         const service = state.services.find(function (item) { return item.service === Number(values.serviceId); });
         if (!service) throw new Error("Escolha um produto válido.");
         const quantity = Number(values.quantity);
-        const estimated = ((Number(service.rate) * quantity) / 1000).toFixed(4);
-        const confirmed = window.confirm(`Confirmar pedido real?\n\n${service.name}\nQuantidade: ${quantity}\nEstimativa: ${money(estimated, "USD")}\n\nEsta ação pode descontar o saldo da SMMHype.`);
+        const estimated = ((serviceRateBRL(service) * quantity) / 1000).toFixed(2);
+        const confirmed = window.confirm(`Confirmar pedido real?\n\n${service.name}\nQuantidade: ${quantity}\nValor estimado: ${money(estimated)}\n\nO servidor validará e descontará o valor correspondente da sua carteira.`);
         if (!confirmed) return;
         const idempotencyKey = window.crypto && crypto.randomUUID
           ? crypto.randomUUID()
@@ -558,39 +676,68 @@
             serviceId: Number(values.serviceId),
             link: values.link,
             quantity,
+            paymentMethod: "wallet",
+            displayedRateBRL: Number(serviceRateBRL(service).toFixed(2)),
             idempotencyKey,
           },
         });
         state.orders.unshift(order);
+        try { state.wallet = await client().request("/api/wallet"); } catch { /* mantém o saldo visível atual */ }
         state.screen = "orders";
         render();
         toast(`Pedido #${order.providerOrderId} enviado com sucesso.`);
         return;
       }
 
-      if (type === "add-service") {
-        const service = await client().request("/admin/services", {
+      if (type === "wallet-deposit") {
+        if (!state.walletSupported) throw new Error("O servidor ainda não habilitou a carteira.");
+        const amount = Number(String(values.amount).replace(",", "."));
+        if (!Number.isFinite(amount) || amount < 1) throw new Error("Informe um valor de depósito válido.");
+        const idempotencyKey = window.crypto && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `deposit-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const payment = await client().request("/api/wallet/deposits", {
           method: "POST",
-          body: { serviceId: Number(values.serviceId) },
+          body: { amount: Number(amount.toFixed(2)), feePercent: 5, idempotencyKey },
         });
-        await loadAdminData();
-        render();
-        toast(`Serviço #${service.service} adicionado ao catálogo.`);
+        const url = payment.checkoutUrl || payment.initPoint || payment.paymentUrl || payment.ticketUrl;
+        if (!url) throw new Error("Pagamento criado, mas o servidor não retornou o link do Mercado Pago.");
+        toast("Pagamento criado. O saldo será liberado automaticamente após a aprovação.");
+        window.location.href = url;
         return;
       }
 
-      if (type === "team-code") {
-        if (!window.confirm("Alterar o código e desconectar todos os membros atuais?")) return;
-        await client().request("/admin/team-code", {
+      if (type === "add-service") {
+        const pricePerThousandBRL = Number(String(values.pricePerThousandBRL || "").replace(",", "."));
+        if (!Number.isFinite(pricePerThousandBRL) || pricePerThousandBRL <= 0) throw new Error("Informe o preço cobrado por 1.000 em R$.");
+        const service = await client().request("/admin/services", {
           method: "POST",
-          body: { newCode: values.newCode },
+          body: { serviceId: Number(values.serviceId), pricePerThousandBRL: Number(pricePerThousandBRL.toFixed(2)) },
         });
-        form.reset();
-        toast("Código alterado. Os membros precisarão entrar novamente.");
+        await loadAdminData();
+        render();
+        toast(`Serviço #${service.service} adicionado com preço de ${money(pricePerThousandBRL)} por 1.000.`);
+        return;
       }
+
+      if (type === "service-price") {
+        const serviceId = Number(form.dataset.serviceId);
+        const pricePerThousandBRL = Number(String(values.pricePerThousandBRL || "").replace(",", "."));
+        if (!Number.isFinite(serviceId) || serviceId <= 0) throw new Error("Serviço inválido.");
+        if (!Number.isFinite(pricePerThousandBRL) || pricePerThousandBRL <= 0) throw new Error("Informe um preço válido por 1.000 em R$.");
+        await client().request(`/admin/services/${serviceId}`, {
+          method: "PATCH",
+          body: { pricePerThousandBRL: Number(pricePerThousandBRL.toFixed(2)) },
+        });
+        await loadAdminData();
+        render();
+        toast(`Preço atualizado para ${money(pricePerThousandBRL)} por 1.000.`);
+        return;
+      }
+
     } catch (error) {
       toast(error.message, "error");
-      if (error.status === 401 && type !== "member-login" && type !== "admin-login") {
+      if (error.status === 401 && type !== "member-login" && type !== "member-register" && type !== "admin-login") {
         clearSession();
         state.screen = "login";
         render();
@@ -604,6 +751,7 @@
     const action = button.dataset.action;
     const id = button.dataset.id;
     if (action === "admin-login-screen") return navigate("admin-login");
+    if (action === "register-screen") return navigate("register");
     if (action === "member-login-screen") return navigate("login");
     if (action === "logout") {
       clearSession();
@@ -615,6 +763,17 @@
       buttonBusy(button, true);
       try { await loadMemberData(); render(); toast("Dados atualizados."); }
       catch (error) { toast(error.message, "error"); }
+      finally { buttonBusy(button, false); }
+      return;
+    }
+    if (action === "refresh-wallet") {
+      buttonBusy(button, true);
+      try {
+        state.wallet = await client().request("/api/wallet");
+        state.walletSupported = true;
+        render();
+        toast("Carteira atualizada.");
+      } catch (error) { toast(error.message, "error"); }
       finally { buttonBusy(button, false); }
       return;
     }
@@ -673,6 +832,20 @@
     }
   }
 
+  function updateWalletPreview() {
+    const input = document.querySelector("[data-wallet-amount]");
+    const credit = document.querySelector("[data-wallet-credit]");
+    const fee = document.querySelector("[data-wallet-fee]");
+    const total = document.querySelector("[data-wallet-total]");
+    if (!input || !credit || !fee || !total) return;
+    const amount = Number(String(input.value || "0").replace(",", "."));
+    const safe = Number.isFinite(amount) && amount > 0 ? amount : 0;
+    const feeValue = safe * 0.05;
+    credit.textContent = money(safe);
+    fee.textContent = money(feeValue);
+    total.textContent = money(safe + feeValue);
+  }
+
   function updateOrderPreview() {
     const select = document.querySelector("[data-order-service]");
     const quantityInput = document.querySelector("[data-order-quantity]");
@@ -687,7 +860,7 @@
     helper.textContent = `Mínimo ${service.min} • Máximo ${service.max} • ${service.category}`;
     const quantity = Number(quantityInput.value);
     preview.textContent = Number.isFinite(quantity) && quantity > 0
-      ? money((Number(service.rate) * quantity) / 1000, "USD")
+      ? money((serviceRateBRL(service) * quantity) / 1000)
       : "—";
   }
 
@@ -714,10 +887,19 @@
 
   app.addEventListener("input", function (event) {
     if (event.target.matches("[data-order-quantity]")) updateOrderPreview();
+    if (event.target.matches("[data-wallet-amount]")) updateWalletPreview();
   });
 
   app.addEventListener("change", function (event) {
     if (event.target.matches("[data-order-service]")) updateOrderPreview();
+  });
+
+  window.addEventListener("focus", async function () {
+    if (!state.session || state.session.role === "admin" || !state.walletSupported) return;
+    try {
+      state.wallet = await client().request("/api/wallet");
+      if (state.screen === "wallet" || state.screen === "home") render();
+    } catch { /* atualização silenciosa */ }
   });
 
   bootstrap();
