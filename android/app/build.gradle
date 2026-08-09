@@ -7,8 +7,9 @@ def localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withInputStream { localProperties.load(it) }
 }
+def defaultServerUrl = "https://hype-equipe-production.up.railway.app"
 def configuredServerUrl = System.getenv("HYPE_SERVER_URL")
-        ?: (localProperties.getProperty("HYPE_SERVER_URL") ?: (project.findProperty("HYPE_SERVER_URL") ?: ""))
+        ?: (localProperties.getProperty("HYPE_SERVER_URL") ?: (project.findProperty("HYPE_SERVER_URL") ?: defaultServerUrl))
 def escapedServerUrl = configuredServerUrl.replace("\\", "\\\\").replace('"', '\\"')
 
 android {
@@ -19,8 +20,8 @@ android {
         applicationId "com.hypeequipe.mobile"
         minSdk 24
         targetSdk 35
-        versionCode 210
-        versionName "2.1.0"
+        versionCode 211
+        versionName "2.1.1"
         buildConfigField "String", "HYPE_SERVER_URL", "\"${escapedServerUrl}\""
     }
 
