@@ -1,0 +1,79 @@
+/* Tw Store 2.2 — Conta, Tickets e WhatsApp */
+.auth-switch [data-action="admin-login-screen"] { display: none !important; }
+.feature-page { padding-bottom: 120px; }
+.feature-heading { margin-bottom: 18px; }
+.feature-menu { display: grid; gap: 12px; }
+.feature-option {
+  width: 100%; display: grid; grid-template-columns: 54px minmax(0, 1fr) 28px; align-items: center;
+  gap: 14px; padding: 17px 16px; border: 1px solid rgba(243, 71, 88, .23); border-radius: 22px;
+  background: linear-gradient(145deg, rgba(50, 13, 19, .96), rgba(20, 8, 11, .98)); color: #fff; text-align: left;
+  box-shadow: 0 12px 35px rgba(0,0,0,.18); cursor: pointer;
+}
+.feature-option:active { transform: scale(.99); }
+.feature-option-icon { width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; background: rgba(244, 65, 83, .12); color: #ff6576; }
+.feature-option-icon .icon { width: 27px; height: 27px; }
+.feature-option-copy { min-width: 0; display: grid; gap: 4px; }
+.feature-option-copy strong { font-size: 18px; line-height: 1.15; }
+.feature-option-copy small { color: rgba(255,255,255,.61); font-size: 13px; line-height: 1.35; }
+.feature-option-arrow { color: rgba(255,255,255,.42); display: grid; place-items: center; }
+.feature-option-arrow .icon { width: 22px; height: 22px; }
+.feature-option-whatsapp .feature-option-icon { color: #64d58b; background: rgba(65, 195, 112, .11); }
+.feature-nav-glyph { display: block; font-size: 24px; line-height: 22px; font-weight: 500; }
+.feature-back-heading { display: grid; grid-template-columns: 43px minmax(0,1fr); gap: 12px; align-items: center; margin: 18px 0 18px; }
+.feature-back-heading h1 { margin: 0 0 3px; font-size: 28px; }
+.feature-back-heading p { margin: 0; color: rgba(255,255,255,.58); font-size: 13px; }
+.feature-back-button { width: 43px; height: 43px; border-radius: 14px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.05); color: #fff; display:grid; place-items:center; }
+.feature-back-button .icon { width: 23px; height: 23px; }
+.feature-profile-card { display: grid; justify-items: center; gap: 12px; padding: 24px 18px; margin-bottom: 14px; }
+.feature-photo-wrap { position: relative; width: 104px; height: 104px; }
+.feature-photo { width: 104px; height: 104px; border-radius: 32px; display: grid; place-items: center; background: linear-gradient(145deg,#51131d,#220b10); border: 2px solid rgba(255,91,109,.42); font-size: 36px; font-weight: 800; background-size: cover; background-position: center; }
+.feature-camera { position:absolute; right:-7px; bottom:-5px; width:39px; height:39px; border-radius:14px; border:3px solid #10080a; background:#ed3f55; color:#fff; display:grid; place-items:center; }
+.feature-camera .icon { width:20px; height:20px; }
+.feature-profile-copy { text-align:center; display:grid; gap:3px; }
+.feature-profile-copy strong { font-size:21px; }
+.feature-profile-copy span { color:rgba(255,255,255,.55); }
+.feature-section-card { margin-bottom: 14px; }
+.feature-section-title { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; }
+.feature-section-title > .icon { width:24px; height:24px; color:#ff6374; flex:none; }
+.feature-section-title h2 { margin:0 0 3px; font-size:18px; }
+.feature-section-title p { margin:0; color:rgba(255,255,255,.56); font-size:13px; }
+.feature-logout { margin-top: 12px; }
+.feature-loading, .feature-error { text-align:center; padding:24px; color:rgba(255,255,255,.65); }
+.feature-error { color:#ff8793; }
+.feature-ticket-actions { margin-bottom: 14px; }
+.feature-ticket-list { display:grid; gap:11px; }
+.feature-ticket-card { width:100%; text-align:left; color:#fff; cursor:pointer; }
+.feature-ticket-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.feature-ticket-head strong { font-size:16px; min-width:0; }
+.feature-ticket-card p { margin:9px 0 10px; color:rgba(255,255,255,.61); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.feature-ticket-meta { display:flex; justify-content:space-between; gap:10px; color:rgba(255,255,255,.39); font-size:11px; }
+.feature-status { flex:none; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; border-radius:999px; padding:6px 8px; }
+.feature-status-open { color:#ffd36b; background:rgba(255,190,58,.12); }
+.feature-status-answered { color:#73dda0; background:rgba(62,200,114,.12); }
+.feature-status-closed { color:#aaa; background:rgba(255,255,255,.07); }
+.feature-textarea { min-height: 140px; resize: vertical; }
+.feature-thread { display:grid; gap:10px; margin: 4px 0 14px; }
+.feature-message { max-width:88%; padding:12px 13px; border-radius:18px; border:1px solid rgba(255,255,255,.07); }
+.feature-message.mine { justify-self:end; border-bottom-right-radius:5px; background:linear-gradient(145deg,#5d1722,#3b0e15); }
+.feature-message.theirs { justify-self:start; border-bottom-left-radius:5px; background:rgba(255,255,255,.055); }
+.feature-message-label { font-size:10px; color:#ff7787; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.feature-message p { margin:5px 0 7px; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
+.feature-message time { color:rgba(255,255,255,.38); font-size:10px; }
+.feature-reply-card { position:sticky; bottom:86px; padding:10px; z-index:4; backdrop-filter:blur(12px); }
+.feature-reply-form { display:grid; grid-template-columns:minmax(0,1fr) 46px; gap:8px; align-items:end; }
+.feature-reply-form textarea { min-height:46px; max-height:140px; resize:vertical; }
+.feature-send-button { width:46px; height:46px; border:0; border-radius:15px; background:#ef4257; color:#fff; display:grid; place-items:center; }
+.feature-send-button .icon { width:22px; height:22px; }
+.feature-closed-note { padding:13px; border-radius:15px; text-align:center; color:rgba(255,255,255,.52); background:rgba(255,255,255,.04); }
+.feature-ticket-footer { margin-top:12px; }
+.feature-admin-support-card { margin-top:14px; display:grid; gap:15px; }
+.feature-admin-support-copy { display:grid; grid-template-columns:54px minmax(0,1fr); gap:13px; align-items:center; }
+.feature-admin-support-copy h2 { margin:0 0 4px; font-size:18px; }
+.feature-admin-support-copy p { margin:0; color:rgba(255,255,255,.58); font-size:13px; }
+.feature-admin-badge { display:inline-grid; place-items:center; min-width:23px; height:23px; padding:0 7px; margin-left:5px; border-radius:999px; background:#ef4257; color:#fff; font-size:11px; vertical-align:2px; }
+.feature-admin-return { margin-top:18px; }
+@media (min-width: 700px) {
+  .feature-menu { grid-template-columns:repeat(3,1fr); }
+  .feature-option { grid-template-columns:50px minmax(0,1fr); align-content:start; min-height:150px; }
+  .feature-option-arrow { display:none; }
+}
