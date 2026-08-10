@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Backend do Tw Store com contas, carteira BRL, Mercado Pago, categorias e personalizacao de servicos.",
-  "main": "src/server.js",
+  "main": "src/launcher.js",
   "scripts": {
-    "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/app.js && node --check src/db.js && node --check src/smm-client.js && node --check src/mercado-pago-client.js"
+    "start": "node src/launcher.js",
+    "check": "node --check src/launcher.js && node --check src/server.js && node --check src/app.js && node --check src/db.js && node --check src/support-features.js && node --check src/smm-client.js && node --check src/mercado-pago-client.js && node --check public/features-v3.js"
   },
   "engines": {
     "node": ">=22 <25"
