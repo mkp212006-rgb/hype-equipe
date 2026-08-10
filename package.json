@@ -1,22 +1,22 @@
 {
-  "name": "hype-equipe-backend",
-  "version": "2.1.0",
+  "name": "hype-equipe",
+  "version": "2.1.1",
   "private": true,
-  "description": "Backend do Tw Store com contas, carteira BRL, Mercado Pago e precificacao por 1.000.",
+  "type": "module",
+  "description": "Backend do Tw Store com contas, carteira BRL, Mercado Pago, categorias e personalizacao de servicos.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/db.js && node --check src/provider.js && node --check src/mercadopago.js"
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/db.js && node --check src/smm-client.js && node --check src/mercado-pago-client.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22 <25"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3"
   }
 }
