@@ -385,6 +385,17 @@
   }
 
   document.addEventListener("submit", function (event) {
+    const memberOrderForm = event.target.closest('[data-form="new-order"]');
+    if (memberOrderForm) {
+      const serviceSelect = memberOrderForm.querySelector("[data-order-service]");
+      const product = serviceSelect ? vpnProductByServiceId(serviceSelect.value) : null;
+      if (product) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        buyVpnFromCatalog(product, memberOrderForm.querySelector('button[type="submit"]'));
+        return;
+      }
+    }
     const addForm = event.target.closest('[data-form="add-service"]');
     if (addForm && addForm.querySelector("[data-vpn-product-kind]")?.value === "vpn") {
       event.preventDefault();
@@ -440,9 +451,237 @@
     }
   }, true);
 
+
+  const VPN_SERVICE_BASE_ID = 900000000;
+
+  function vpnPseudoServiceId(product) {
+    return VPN_SERVICE_BASE_ID + Number(product && product.id || 0);
+  }
+
+  function isVpnPseudoServiceId(value) {
+    const numeric = Number(value);
+    return Number.isInteger(numeric) && numeric >= VPN_SERVICE_BASE_ID;
+  }
+
+  function vpnProductByServiceId(value) {
+    if (!isVpnPseudoServiceId(value)) return null;
+    const productId = Number(value) - VPN_SERVICE_BASE_ID;
+    return state.products.find(function (item) { return Number(item.id) === productId; }) || null;
+  }
+
+  async function ensureMemberVpnProductsLoaded() {
+    const current = session();
+    if (!current || current.role !== "member") return [];
+    if (state.products.length) return state.products;
+    if (state.memberLoading) return state.products;
+    state.memberLoading = true;
+    try {
+      const data = await api("/api/vpn/products");
+      state.products = Array.isArray(data) ? data : [];
+      return state.products;
+    } catch (error) {
+      if (Number(error.status) !== 404) console.warn("VPN member catalog unavailable", error);
+      state.products = [];
+      return [];
+    } finally {
+      state.memberLoading = false;
+    }
+  }
+
+  function memberVpnMatches(product, category, query) {
+    if (productCategory(product) !== category) return false;
+    if (!query) return true;
+    const haystack = [product.name, product.description, productCategory(product), String(product.accessType || "ssh")]
+      .join(" ")
+      .toLocaleLowerCase("pt-BR");
+    return haystack.includes(query);
+  }
+
+  function setFieldVisibility(field, visible) {
+    if (!field) return;
+    field.style.display = visible ? "" : "none";
+  }
+
+  function syncMemberVpnCatalog() {
+    const current = session();
+    if (!current || current.role !== "member") return;
+    const activeNav = document.querySelector('[data-nav="new-order"].active');
+    const form = document.querySelector('[data-form="new-order"]');
+    if (!activeNav || !form) return;
+
+    ensureMemberVpnProductsLoaded().then(function () {
+      const categorySelect = form.querySelector("[data-order-category]");
+      const serviceSelect = form.querySelector("[data-order-service]");
+      const searchInput = form.querySelector("[data-order-search]");
+      if (!categorySelect || !serviceSelect) return;
+
+      const currentCategory = String(categorySelect.value || "");
+      const query = String(searchInput && searchInput.value || "").trim().toLocaleLowerCase("pt-BR");
+      const selectedValue = String(serviceSelect.value || "");
+
+      Array.from(new Set(state.products.map(function (product) { return productCategory(product); }))).sort(function (a, b) {
+        return String(a).localeCompare(String(b), "pt-BR");
+      }).forEach(function (categoryName) {
+        const exists = Array.from(categorySelect.options).some(function (option) { return String(option.value) === String(categoryName); });
+        if (!exists) {
+          const option = document.createElement("option");
+          option.value = categoryName;
+          option.textContent = categoryName;
+          categorySelect.appendChild(option);
+        }
+      });
+
+      const matches = state.products.filter(function (product) {
+        return memberVpnMatches(product, currentCategory, query);
+      });
+
+      if (matches.length) {
+        if (serviceSelect.options.length === 1 && serviceSelect.options[0] && serviceSelect.options[0].value === "") {
+          serviceSelect.innerHTML = "";
+        }
+        const existingValues = new Set(Array.from(serviceSelect.options).map(function (option) { return String(option.value); }));
+        matches.forEach(function (product) {
+          const value = String(vpnPseudoServiceId(product));
+          if (existingValues.has(value)) return;
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = "VPN - " + product.name;
+          option.dataset.vpnProduct = String(product.id);
+          serviceSelect.appendChild(option);
+          existingValues.add(value);
+        });
+        serviceSelect.disabled = false;
+        const hasSelected = Array.from(serviceSelect.options).some(function (option) { return String(option.value) === selectedValue; });
+        if (selectedValue && hasSelected) serviceSelect.value = selectedValue;
+      }
+
+      updateMemberVpnSelection();
+    });
+  }
+
+  function updateMemberVpnSelection() {
+    const current = session();
+    if (!current || current.role !== "member") return;
+    const form = document.querySelector('[data-form="new-order"]');
+    if (!form) return;
+
+    const serviceSelect = form.querySelector("[data-order-service]");
+    const product = serviceSelect ? vpnProductByServiceId(serviceSelect.value) : null;
+    const linkInput = form.querySelector('input[name="link"]');
+    const quantityInput = form.querySelector("[data-order-quantity]");
+    const linkField = linkInput && linkInput.closest(".field");
+    const quantityField = quantityInput && quantityInput.closest(".field");
+    const averageTimeField = document.querySelector("[data-order-average-time]")?.closest(".field");
+    const description = document.querySelector("[data-service-description]");
+    const averageTime = document.querySelector("[data-order-average-time]");
+    const helper = document.querySelector("[data-service-helper]");
+    const preview = document.querySelector("[data-cost-preview]");
+    const previewCaption = preview && preview.parentElement ? preview.parentElement.querySelector("span:last-child") : null;
+    const submit = form.querySelector('button[type="submit"]');
+
+    if (submit && !submit.dataset.vpnOriginalHtml) submit.dataset.vpnOriginalHtml = submit.innerHTML;
+    if (linkInput && !linkInput.dataset.vpnOriginalRequired) linkInput.dataset.vpnOriginalRequired = linkInput.required ? "true" : "false";
+    if (quantityInput && !quantityInput.dataset.vpnOriginalRequired) quantityInput.dataset.vpnOriginalRequired = quantityInput.required ? "true" : "false";
+
+    if (!product) {
+      setFieldVisibility(linkField, true);
+      setFieldVisibility(quantityField, true);
+      setFieldVisibility(averageTimeField, true);
+      if (linkInput) {
+        linkInput.disabled = false;
+        linkInput.required = linkInput.dataset.vpnOriginalRequired === "true";
+      }
+      if (quantityInput) {
+        quantityInput.disabled = false;
+        quantityInput.required = quantityInput.dataset.vpnOriginalRequired === "true";
+      }
+      if (submit && submit.dataset.vpnOriginalHtml) submit.innerHTML = submit.dataset.vpnOriginalHtml;
+      if (previewCaption) previewCaption.textContent = "O valor continua sendo calculado automaticamente com a tarifa original do aplicativo.";
+      return;
+    }
+
+    setFieldVisibility(linkField, false);
+    setFieldVisibility(quantityField, false);
+    setFieldVisibility(averageTimeField, true);
+    if (linkInput) {
+      linkInput.value = "https://vpn.local/" + product.id;
+      linkInput.disabled = true;
+      linkInput.required = false;
+    }
+    if (quantityInput) {
+      quantityInput.value = "1";
+      quantityInput.min = "1";
+      quantityInput.max = "1";
+      quantityInput.disabled = true;
+      quantityInput.required = false;
+    }
+    if (helper) helper.textContent = "Plano fixo: " + String(product.durationDays) + " dias • " + String(product.connectionLimit) + " conexão" + (Number(product.connectionLimit) === 1 ? "" : "ões");
+    if (description) {
+      description.textContent = product.description || "Acesso criado automaticamente após a compra.";
+      description.style.display = "block";
+    }
+    if (averageTime) averageTime.textContent = "Ativação automática";
+    if (preview) preview.textContent = money(product.priceBRL);
+    if (previewCaption) previewCaption.textContent = "Valor fixo do acesso VPN. A conta é criada automaticamente após a compra.";
+    if (submit) submit.innerHTML = "Comprar acesso VPN";
+  }
+
+  async function buyVpnFromCatalog(product, button) {
+    if (!product) throw new Error("Produto VPN inválido.");
+    if (!window.confirm("Confirmar a compra deste acesso VPN? O valor será descontado da sua carteira.")) return;
+    const original = button ? button.innerHTML : "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Criando acesso…";
+    }
+    try {
+      const order = await api("/api/vpn/orders", {
+        method: "POST",
+        body: { productId: Number(product.id), idempotencyKey: randomKey() },
+      });
+      state.orders.unshift(order);
+      try { state.wallet = await api("/api/wallet"); } catch { /* ignora */ }
+      toast("Acesso VPN criado com sucesso.");
+      document.querySelectorAll(".vpn-success-panel").forEach(function (node) { node.remove(); });
+      const anchor = document.querySelector('[data-form="new-order"] .smm-order-panel') || document.querySelector('[data-form="new-order"]');
+      if (anchor) {
+        const result = document.createElement("div");
+        result.className = "vpn-success-panel";
+        result.innerHTML = '<h3>Acesso criado</h3><p>Salve estas credenciais.</p>' + orderCard(order) + '<button type="button" class="button button-secondary" data-vpn-action="reload-app">Atualizar carteira</button>';
+        anchor.insertAdjacentElement("afterend", result);
+        result.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) {
+        button.disabled = false;
+        button.innerHTML = original;
+      }
+    }
+  }
+
+  injectMemberProducts = function () {
+    syncMemberVpnCatalog();
+  };
+
+
+  document.addEventListener("change", function (event) {
+    if (event.target.matches("[data-order-category], [data-order-service]")) {
+      setTimeout(function () { syncMemberVpnCatalog(); }, 0);
+    }
+  }, true);
+
+  document.addEventListener("input", function (event) {
+    if (event.target.matches("[data-order-search]")) {
+      setTimeout(function () { syncMemberVpnCatalog(); }, 0);
+    }
+  }, true);
+
   const observer = new MutationObserver(function () {
     enhanceAdminAddForm();
     injectMemberProducts();
+    updateMemberVpnSelection();
     injectMemberHistory();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
