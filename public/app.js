@@ -36,6 +36,7 @@
     logout: '<path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/>',
     lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/>',
     box: '<path d="m21 8-9-5-9 5 9 5Z"/><path d="m3 8 9 5 9-5v8l-9 5-9-5Z"/><path d="M12 13v8"/>',
     server: '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
     chevron: '<path d="m9 18 6-6-6-6"/>',
@@ -137,6 +138,22 @@
     const meta = serviceMeta(service && service.service);
     if (service && Object.prototype.hasOwnProperty.call(service, "description")) return String(service.description || "");
     return String((service && service.customDescription) || meta.description || "");
+  }
+
+  function serviceAverageTime(service) {
+    if (!service) return "Não informado";
+    const candidates = [
+      service.averageTime,
+      service.avgTime,
+      service.average_time,
+      service.deliveryTime,
+      service.delivery_time,
+      service.time,
+    ];
+    const value = candidates.find(function (item) {
+      return item !== undefined && item !== null && String(item).trim();
+    });
+    return value === undefined ? "Não informado" : String(value).trim();
   }
 
   function serviceCategoryName(service) {
@@ -562,54 +579,70 @@
 
     const first = state.services[0];
     const firstCategory = first ? serviceCategoryName(first) : "";
-    const options = state.services.map(function (service) {
-      return `<option value="${service.service}">${escapeHtml(serviceDisplayName(service))}</option>`;
+    const firstCategoryServices = first
+      ? state.services.filter(function (service) { return serviceCategoryName(service) === firstCategory; })
+      : [];
+    const selectedFirst = firstCategoryServices[0] || first;
+    const categoryOptions = categories.map(function (category) {
+      return `<option value="${escapeHtml(category)}" ${category === firstCategory ? "selected" : ""}>${escapeHtml(category)}</option>`;
     }).join("");
-    const categoryTabs = categories.map(function (category) {
-      return `<button type="button" class="product-category-chip" data-action="filter-products" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`;
+    const serviceOptions = firstCategoryServices.map(function (service) {
+      return `<option value="${service.service}">#${escapeHtml(service.service)} - ${escapeHtml(serviceDisplayName(service))}</option>`;
     }).join("");
 
     app.innerHTML = shell(`
-      ${topbar("Nova solicitação")}
-      <section class="page-heading"><h1>Escolha seu produto</h1><p class="subtitle">Encontre o serviço ideal, confira os detalhes e finalize o pedido com segurança.</p></section>
+      ${topbar("Novo pedido")}
+      <section class="page-heading smm-page-heading"><h1>Fazer pedido</h1><p class="subtitle">Escolha a categoria e o serviço, informe o destino e a quantidade.</p></section>
       ${state.services.length ? `
-        <form class="new-order-form" data-form="new-order">
-          <section class="product-picker" aria-label="Catálogo de produtos">
-            <div class="product-picker-heading">
-              <div><span class="eyebrow">Catálogo</span><h2>Produtos disponíveis</h2></div>
-              <span class="product-count">${state.services.length} ${state.services.length === 1 ? "produto" : "produtos"}</span>
-            </div>
-            <div class="product-category-tabs" aria-label="Filtrar por categoria">
-              <button type="button" class="product-category-chip active" data-action="filter-products" data-category="__all__">Todos</button>
-              ${categoryTabs}
-            </div>
-            <label class="product-native-select-wrap" aria-hidden="true"><span>Produto</span><select name="serviceId" data-order-service tabindex="-1">${options}</select></label>
-            <div class="product-grid" data-product-grid>
-              ${state.services.map(function (service, index) { return productCard(service, index === 0); }).join("")}
-            </div>
-          </section>
+        <form class="new-order-form smm-order-form" data-form="new-order">
+          <section class="card smm-order-panel">
+            <label class="field smm-field smm-search-field">
+              <span class="field-label">Procurar</span>
+              <span class="smm-search-control">
+                ${icon("search")}
+                <input class="smm-search-input" type="search" placeholder="Procurar serviço" autocomplete="off" data-order-search />
+              </span>
+            </label>
 
-          <section class="card order-config-card" data-order-config>
-            <div class="selected-product-summary">
-              <div class="selected-product-icon">${icon("box")}</div>
-              <div class="selected-product-copy">
-                <span>Produto selecionado</span>
-                <strong data-selected-product-name>${escapeHtml(serviceDisplayName(first))}</strong>
-                <small data-service-helper>${escapeHtml(firstCategory)} • mínimo ${escapeHtml(first.min)} • máximo ${escapeHtml(first.max)}</small>
-              </div>
+            <label class="field smm-field">
+              <span class="field-label">Categoria</span>
+              <span class="smm-select-shell">
+                <select class="field-control smm-select" data-order-category>${categoryOptions}</select>
+              </span>
+            </label>
+
+            <label class="field smm-field">
+              <span class="field-label">Serviço</span>
+              <span class="smm-select-shell">
+                <select class="field-control smm-select" name="serviceId" data-order-service required>${serviceOptions}</select>
+              </span>
+              <span class="service-description smm-service-description" data-service-description>${escapeHtml(serviceDescription(selectedFirst))}</span>
+            </label>
+
+            <label class="field smm-field">
+              <span class="field-label">Link</span>
+              <input class="field-control smm-input" name="link" type="url" inputmode="url" placeholder="https://instagram.com/..." required />
+            </label>
+
+            <label class="field smm-field">
+              <span class="field-label">Quantidade</span>
+              <input class="field-control smm-input" name="quantity" type="number" inputmode="numeric" min="${escapeHtml(selectedFirst.min)}" max="${escapeHtml(selectedFirst.max)}" placeholder="${escapeHtml(selectedFirst.min)}" data-order-quantity required />
+              <span class="helper smm-limits" data-service-helper>Mín.: ${escapeHtml(selectedFirst.min)} - Máx.: ${escapeHtml(selectedFirst.max)}</span>
+            </label>
+
+            <div class="field smm-field">
+              <span class="field-label">Tempo médio</span>
+              <div class="smm-readonly-field" data-order-average-time>${escapeHtml(serviceAverageTime(selectedFirst))}</div>
             </div>
-            <div class="service-description selected-description" data-service-description>${escapeHtml(serviceDescription(first))}</div>
-            <div class="order-fields-grid">
-              <label class="field"><span class="field-label">Link do perfil ou publicação</span><input class="field-control" name="link" type="url" inputmode="url" placeholder="https://instagram.com/..." required /></label>
-              <label class="field"><span class="field-label">Quantidade</span><input class="field-control" name="quantity" type="number" inputmode="numeric" min="${escapeHtml(first.min)}" max="${escapeHtml(first.max)}" placeholder="${escapeHtml(first.min)}" data-order-quantity required /></label>
-            </div>
-            <div class="cost-preview product-cost-preview">
-              <span class="cost-preview-label">Total estimado</span>
+
+            <div class="cost-preview product-cost-preview smm-charge-preview">
+              <span class="cost-preview-label">Cobrar</span>
               <strong data-cost-preview>—</strong>
-              <span>Calculado com o preço atual do produto. O servidor valida o valor final antes de enviar.</span>
+              <span>O valor continua sendo calculado automaticamente com a tarifa original do aplicativo.</span>
             </div>
-            <div class="notice">${icon("shield")} <span>O pedido só é enviado quando houver saldo suficiente na sua carteira.</span></div>
-            <button class="button button-primary order-submit-button" type="submit">${icon("check")} Revisar e enviar pedido</button>
+
+            <div class="notice smm-order-notice">${icon("shield")} <span>O pedido só é enviado quando houver saldo suficiente na sua carteira.</span></div>
+            <button class="button button-primary order-submit-button smm-order-submit" type="submit">${icon("check")} Enviar pedido</button>
           </section>
         </form>` : `
         <div class="card empty-state"><div class="empty-icon">${icon("box")}</div><h3>Nenhum produto disponível</h3><p>Peça ao administrador para cadastrar os serviços da Tw Store.</p></div>`}
@@ -1210,6 +1243,37 @@
     if (!selectedVisible && visible[0]) selectProduct(visible[0].dataset.serviceId);
   }
 
+  function refreshOrderServiceOptions(resetSelection) {
+    const categorySelect = document.querySelector("[data-order-category]");
+    const serviceSelect = document.querySelector("[data-order-service]");
+    const searchInput = document.querySelector("[data-order-search]");
+    if (!categorySelect || !serviceSelect) return;
+
+    const category = String(categorySelect.value || "");
+    const query = String(searchInput && searchInput.value || "").trim().toLocaleLowerCase("pt-BR");
+    const previous = resetSelection ? "" : String(serviceSelect.value || "");
+    const matches = state.services.filter(function (service) {
+      if (serviceCategoryName(service) !== category) return false;
+      if (!query) return true;
+      const haystack = `${service.service} ${serviceDisplayName(service)} ${serviceDescription(service)} ${serviceCategoryName(service)}`.toLocaleLowerCase("pt-BR");
+      return haystack.includes(query);
+    });
+
+    if (!matches.length) {
+      serviceSelect.innerHTML = '<option value="">Nenhum serviço encontrado</option>';
+      serviceSelect.disabled = true;
+    } else {
+      serviceSelect.disabled = false;
+      serviceSelect.innerHTML = matches.map(function (service) {
+        return `<option value="${service.service}">#${escapeHtml(service.service)} - ${escapeHtml(serviceDisplayName(service))}</option>`;
+      }).join("");
+      const canKeep = previous && matches.some(function (service) { return String(service.service) === previous; });
+      serviceSelect.value = canKeep ? previous : String(matches[0].service);
+    }
+
+    updateOrderPreview();
+  }
+
   function updateWalletPreview() {
     const input = document.querySelector("[data-wallet-amount]");
     const credit = document.querySelector("[data-wallet-credit]");
@@ -1230,19 +1294,37 @@
     const helper = document.querySelector("[data-service-helper]");
     const description = document.querySelector("[data-service-description]");
     const selectedName = document.querySelector("[data-selected-product-name]");
+    const averageTime = document.querySelector("[data-order-average-time]");
     const preview = document.querySelector("[data-cost-preview]");
     if (!select || !quantityInput || !helper || !preview) return;
+
     const service = state.services.find(function (item) { return item.service === Number(select.value); });
-    if (!service) return;
+    if (!service) {
+      quantityInput.disabled = true;
+      quantityInput.value = "";
+      quantityInput.removeAttribute("min");
+      quantityInput.removeAttribute("max");
+      helper.textContent = "Nenhum serviço disponível com este filtro.";
+      if (description) {
+        description.textContent = "";
+        description.style.display = "none";
+      }
+      if (averageTime) averageTime.textContent = "—";
+      preview.textContent = "—";
+      return;
+    }
+
+    quantityInput.disabled = false;
     quantityInput.min = service.min;
     quantityInput.max = service.max;
     quantityInput.placeholder = service.min;
-    helper.textContent = `${serviceCategoryName(service)} • mínimo ${service.min} • máximo ${service.max}`;
+    helper.textContent = `Mín.: ${service.min} - Máx.: ${service.max}`;
     if (selectedName) selectedName.textContent = serviceDisplayName(service);
     if (description) {
       description.textContent = serviceDescription(service);
       description.style.display = serviceDescription(service) ? "block" : "none";
     }
+    if (averageTime) averageTime.textContent = serviceAverageTime(service);
     document.querySelectorAll("[data-product-card]").forEach(function (card) {
       const selected = Number(card.dataset.serviceId) === Number(service.service);
       card.classList.toggle("selected", selected);
@@ -1277,10 +1359,12 @@
 
   app.addEventListener("input", function (event) {
     if (event.target.matches("[data-order-quantity]")) updateOrderPreview();
+    if (event.target.matches("[data-order-search]")) refreshOrderServiceOptions(false);
     if (event.target.matches("[data-wallet-amount]")) updateWalletPreview();
   });
 
   app.addEventListener("change", function (event) {
+    if (event.target.matches("[data-order-category]")) refreshOrderServiceOptions(true);
     if (event.target.matches("[data-order-service]")) updateOrderPreview();
   });
 

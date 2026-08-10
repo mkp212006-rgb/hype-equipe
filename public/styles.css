@@ -1536,3 +1536,179 @@ textarea {
     margin-left: 0;
   }
 }
+
+
+/* Novo pedido — layout SMM Panel, mantendo a cobrança original */
+.smm-page-heading {
+  margin-bottom: 14px;
+}
+
+.smm-order-form {
+  gap: 0;
+}
+
+.smm-order-panel {
+  display: grid;
+  gap: 18px;
+  padding: 18px 16px 20px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 74, 84, .08), transparent 34%),
+    linear-gradient(160deg, rgba(28, 13, 16, .98), rgba(13, 7, 8, .99));
+  border-color: rgba(255, 74, 84, .22);
+}
+
+.smm-field {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.smm-field .field-label {
+  color: #f8f1f2;
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.smm-search-control {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid #4b252b;
+  border-radius: 15px;
+  background: #0c0708;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.smm-search-control:focus-within {
+  border-color: var(--primary-2);
+  box-shadow: 0 0 0 3px rgba(227, 6, 19, .14);
+}
+
+.smm-search-control .icon {
+  width: 22px;
+  height: 22px;
+  color: #ff6571;
+}
+
+.smm-search-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.smm-search-input::placeholder {
+  color: #76676a;
+}
+
+.smm-select-shell {
+  position: relative;
+  display: block;
+}
+
+.smm-select-shell::after {
+  content: "⌄";
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  transform: translateY(-55%);
+  color: #bdaeb1;
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.smm-select,
+.smm-input {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 15px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.smm-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 43px;
+  text-overflow: ellipsis;
+}
+
+.smm-select:disabled,
+.smm-input:disabled {
+  opacity: .55;
+}
+
+.smm-service-description {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.smm-limits {
+  margin-top: 0;
+  color: #9f8e92;
+  font-size: 11px;
+}
+
+.smm-readonly-field {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid #3d262a;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .035);
+  color: #c9bfc1;
+  font-size: 14px;
+}
+
+.smm-charge-preview {
+  margin-top: 0;
+  min-height: 80px;
+  border-radius: 15px;
+}
+
+.smm-charge-preview strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 26px;
+}
+
+.smm-charge-preview > span:last-child {
+  display: block;
+  margin-top: 4px;
+  color: #8f7f83;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.smm-order-notice {
+  margin: -2px 0 0;
+}
+
+.smm-order-submit {
+  width: 100%;
+  min-height: 56px;
+  margin-top: 0;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+@media (min-width: 620px) {
+  .smm-order-panel {
+    padding: 22px;
+  }
+}
