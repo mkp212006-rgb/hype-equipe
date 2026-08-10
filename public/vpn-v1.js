@@ -588,6 +588,11 @@
       setFieldVisibility(quantityField, true);
       setFieldVisibility(averageTimeField, true);
       if (linkInput) {
+        const currentLink = String(linkInput.value || "").trim();
+        if (linkInput.dataset.vpnAutoLink === "true" || /^https:\/\/vpn\.local\/\d+\/?$/i.test(currentLink)) {
+          linkInput.value = "";
+          delete linkInput.dataset.vpnAutoLink;
+        }
         linkInput.disabled = false;
         linkInput.required = linkInput.dataset.vpnOriginalRequired === "true";
       }
@@ -605,6 +610,7 @@
     setFieldVisibility(averageTimeField, true);
     if (linkInput) {
       linkInput.value = "https://vpn.local/" + product.id;
+      linkInput.dataset.vpnAutoLink = "true";
       linkInput.disabled = true;
       linkInput.required = false;
     }
