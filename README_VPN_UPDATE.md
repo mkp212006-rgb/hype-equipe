@@ -1,46 +1,70 @@
-# Tw Store — VPN integrado às categorias existentes
+# Atualização Tw Store — VPN automático (v2.3)
 
-Esta atualização mantém **uma única área de categorias** no painel administrativo.
+## Arquivos para enviar ao repositório
 
-## Como cadastrar
+Substitua:
+- `package.json`
+- `src/config.js`
+- `src/launcher.js`
+- `public/index.html`
 
-Na seção já existente **Categorias**, crie ou use qualquer categoria (por exemplo: Internet, VPN, Premium).
-Depois, em **Adicionar produto**, escolha:
+Adicione:
+- `src/vpn-features.js`
+- `public/vpn-v1.js`
+- `public/vpn-v1.css`
 
-- `Serviço SMM / redes sociais` para o comportamento antigo; ou
-- `Acesso VPN automático` para criar um produto VPN.
+Não é necessário apagar os arquivos atuais de SMM, carteira, Mercado Pago ou suporte.
 
-No modo VPN o mesmo formulário permite definir:
+## Variáveis no Railway
 
-- Nome do produto;
-- Descrição;
-- Categoria existente;
-- Preço fixo em BRL;
-- Validade em dias (padrão 30);
-- Limite de conexões (padrão 1);
-- Protocolo SSH, V2Ray ou XRay.
+A URL já possui valor padrão para `https://jardelnet.vpnconfig.xyz`.
 
-Os produtos VPN aparecem junto da lista **Produtos cadastrados**, com um selo `VPN`, e não em uma aba/categoria administrativa separada.
+Crie no Railway a variável secreta:
 
-## API Jardel Net
+```env
+JARDEL_API_ACCOUNT=<sua-chave-da-api>
+```
 
-Configure no Railway, sem colocar a credencial no APK ou no GitHub:
+Opcionais:
 
 ```env
 JARDEL_API_URL=https://jardelnet.vpnconfig.xyz
-JARDEL_API_ACCOUNT=SEU_TOKEN_PRIVADO
 JARDEL_API_CREATE_PATH=/api/usuario/criar.php
+JARDEL_API_TIMEOUT_MS=20000
 ```
 
-A criação envia `login`, `senha`, `dias`, `limite`, `nome` e `tipo` com autenticação Bearer.
+**Não coloque a chave no GitHub nem dentro do APK.**
 
-## Segurança e carteira
+## Fluxo implementado
 
-- A chave da API permanece apenas no backend.
-- O valor é debitado da carteira antes da criação.
-- Se a API VPN falhar, o backend faz estorno automático.
-- A senha do acesso VPN é armazenada criptografada no PostgreSQL.
+1. Admin entra no painel da Tw Store.
+2. Surge a seção **Categoria VPN**.
+3. Admin adiciona um produto (padrão sugerido: VPN 30 dias, 1 conexão, SSH).
+4. O cliente vê **Acessos VPN** na tela de novo pedido.
+5. Ao comprar, o backend debita o preço da carteira e gera login/senha.
+6. O backend chama `POST /api/usuario/criar.php` com Bearer Token.
+7. Em sucesso, as credenciais ficam disponíveis no histórico do cliente.
+8. Se a API falhar, o backend estorna automaticamente o valor para a carteira.
 
-## Banco de dados
+## Endpoints adicionados
 
-A migration adiciona `category_id` em `vpn_products` e cria uma chave estrangeira para `service_categories`. Se uma categoria for removida, o produto VPN fica sem categoria em vez de ser apagado.
+Cliente:
+- `GET /api/vpn/products`
+- `GET /api/vpn/orders`
+- `POST /api/vpn/orders`
+
+Admin:
+- `GET /admin/vpn/status`
+- `GET /admin/vpn/products`
+- `POST /admin/vpn/products`
+- `PATCH /admin/vpn/products/:id`
+- `DELETE /admin/vpn/products/:id`
+- `GET /admin/vpn/orders`
+
+## Segurança
+
+- A chave da API da Jardel Net fica somente no backend.
+- Senhas VPN ficam criptografadas no PostgreSQL usando AES-256-GCM com chave derivada de `JWT_SECRET`.
+- A senha só é retornada para o próprio cliente autenticado.
+- A listagem administrativa não retorna a senha dos acessos.
+- Toda compra tem idempotência e estorno automático em caso de falha no provedor.
