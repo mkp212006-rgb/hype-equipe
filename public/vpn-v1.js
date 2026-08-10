@@ -5,7 +5,7 @@
   const API_URL = "https://hype-equipe-production.up.railway.app";
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
-  const state = { adminLoading: false, memberLoading: false, products: [], orders: [] };
+  const state = { memberLoading: false, adminLoading: false, products: [], orders: [], providerStatus: null };
 
   function session() {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; }
@@ -77,11 +77,15 @@
     return "vpn-" + Date.now() + "-" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
   }
 
+  function productCategory(product) {
+    return String(product && product.categoryName || "Sem categoria");
+  }
+
   function productCard(product) {
     return '<article class="vpn-product-card">' +
-      '<div class="vpn-product-top"><div><span class="vpn-badge">VPN</span><h3>' + escapeHtml(product.name) + '</h3></div><strong>' + money(product.priceBRL) + '</strong></div>' +
+      '<div class="vpn-product-top"><div><span class="vpn-badge">' + escapeHtml(productCategory(product)) + '</span><h3>' + escapeHtml(product.name) + '</h3></div><strong>' + money(product.priceBRL) + '</strong></div>' +
       '<p>' + escapeHtml(product.description || "Acesso criado automaticamente após a compra.") + '</p>' +
-      '<div class="vpn-product-meta"><span>' + escapeHtml(product.durationDays) + ' dias</span><span>' + escapeHtml(product.connectionLimit) + ' conexão' + (Number(product.connectionLimit) === 1 ? "" : "ões") + '</span><span>' + escapeHtml(String(product.accessType || "ssh").toUpperCase()) + '</span></div>' +
+      '<div class="vpn-product-meta"><span>VPN</span><span>' + escapeHtml(product.durationDays) + ' dias</span><span>' + escapeHtml(product.connectionLimit) + ' conexão' + (Number(product.connectionLimit) === 1 ? "" : "ões") + '</span><span>' + escapeHtml(String(product.accessType || "ssh").toUpperCase()) + '</span></div>' +
       '<button type="button" class="button button-primary vpn-buy-button" data-vpn-action="buy" data-product-id="' + escapeHtml(product.id) + '">Comprar acesso</button>' +
     '</article>';
   }
@@ -111,14 +115,14 @@
     const section = document.createElement("section");
     section.className = "card vpn-member-section";
     section.setAttribute("data-vpn-member-products", "true");
-    section.innerHTML = '<div class="section-heading"><h2>Acessos VPN</h2></div><div class="vpn-loading">Carregando acessos…</div>';
+    section.innerHTML = '<div class="section-heading"><h2>Serviços VPN</h2></div><div class="vpn-loading">Carregando serviços…</div>';
     heading.insertAdjacentElement("afterend", section);
     state.memberLoading = true;
     try {
       state.products = await api("/api/vpn/products");
       if (!document.body.contains(section)) return;
-      section.innerHTML = '<div class="vpn-section-title"><div><span class="vpn-badge">NOVA CATEGORIA</span><h2>Acessos VPN</h2><p>Compre um acesso e receba usuário e senha automaticamente.</p></div></div>' +
-        (state.products.length ? '<div class="vpn-product-grid">' + state.products.map(productCard).join("") + '</div>' : '<div class="vpn-empty">Nenhum acesso VPN disponível no momento.</div>');
+      section.innerHTML = '<div class="vpn-section-title"><div><span class="vpn-badge">MESMAS CATEGORIAS DO CATÁLOGO</span><h2>Serviços VPN</h2><p>Os acessos VPN usam as categorias criadas pelo administrador.</p></div></div>' +
+        (state.products.length ? '<div class="vpn-product-grid">' + state.products.map(productCard).join("") + '</div>' : '<div class="vpn-empty">Nenhum serviço VPN disponível no momento.</div>');
     } catch (error) {
       if (document.body.contains(section) && Number(error.status) !== 404) section.innerHTML = '<div class="vpn-empty">VPN indisponível: ' + escapeHtml(error.message) + '</div>';
       else if (document.body.contains(section)) section.remove();
@@ -150,64 +154,211 @@
     }
   }
 
-  function adminProductCard(product) {
-    return '<article class="vpn-admin-product">' +
-      '<div class="vpn-admin-product-head"><div><span class="vpn-badge">ID ' + escapeHtml(product.id) + '</span><strong>' + escapeHtml(product.name) + '</strong></div><button type="button" class="toggle-button ' + (product.enabled ? "enabled" : "") + '" data-vpn-action="toggle-product" data-product-id="' + escapeHtml(product.id) + '" data-enabled="' + (product.enabled ? "true" : "false") + '">' + (product.enabled ? "ATIVO" : "PAUSADO") + '</button></div>' +
-      '<form class="form-stack vpn-admin-edit" data-vpn-form="edit-product" data-product-id="' + escapeHtml(product.id) + '">' +
-        '<label class="field"><span class="field-label">Nome</span><input class="field-control" name="name" maxlength="90" value="' + escapeHtml(product.name) + '" required /></label>' +
+  function getCategoryOptions(selectedId) {
+    const source = document.querySelector('[data-form="add-service"] select[name="categoryId"]');
+    if (!source) return '<option value="">Sem categoria</option>';
+    return Array.from(source.options).map(function (option) {
+      const value = String(option.value || "");
+      return '<option value="' + escapeHtml(value) + '" ' + (String(selectedId == null ? "" : selectedId) === value ? "selected" : "") + '>' + escapeHtml(option.textContent || "Sem categoria") + '</option>';
+    }).join("");
+  }
+
+  function providerStatusText() {
+    if (!state.providerStatus) return "A configuração da API VPN é validada no servidor.";
+    return state.providerStatus.configured
+      ? "API VPN configurada no servidor. A chave não fica salva no aplicativo."
+      : "API VPN ainda não configurada no servidor.";
+  }
+
+  function vpnAdminProductCard(product) {
+    return '<article class="card service-card vpn-catalog-product" data-vpn-product-card="' + escapeHtml(product.id) + '">' +
+      '<div class="service-head"><span class="id-pill">VPN #' + escapeHtml(product.id) + '</span><button type="button" class="toggle-button ' + (product.enabled ? "enabled" : "") + '" data-vpn-action="toggle-product" data-product-id="' + escapeHtml(product.id) + '" data-enabled="' + (product.enabled ? "true" : "false") + '">' + (product.enabled ? "ATIVO" : "PAUSADO") + '</button></div>' +
+      '<div class="service-title mt-12">' + escapeHtml(product.name) + '</div>' +
+      '<div class="service-meta">' + escapeHtml(productCategory(product)) + ' • VPN ' + escapeHtml(String(product.accessType || "ssh").toUpperCase()) + '<br>Preço fixo: ' + money(product.priceBRL) + ' • ' + escapeHtml(product.durationDays) + ' dias • ' + escapeHtml(product.connectionLimit) + ' conexão' + (Number(product.connectionLimit) === 1 ? "" : "ões") + '</div>' +
+      '<form class="service-edit-form" data-vpn-form="edit-product" data-product-id="' + escapeHtml(product.id) + '">' +
+        '<label class="field"><span class="field-label">Nome personalizado</span><input class="field-control" name="name" maxlength="90" value="' + escapeHtml(product.name) + '" required /></label>' +
         '<label class="field"><span class="field-label">Descrição</span><textarea class="field-control field-textarea" name="description" maxlength="500">' + escapeHtml(product.description || "") + '</textarea></label>' +
-        '<div class="vpn-form-grid"><label class="field"><span class="field-label">Preço (R$)</span><input class="field-control" name="priceBRL" type="number" min="0.01" step="0.01" value="' + escapeHtml(Number(product.priceBRL).toFixed(2)) + '" required /></label>' +
-        '<label class="field"><span class="field-label">Dias</span><input class="field-control" name="durationDays" type="number" min="1" max="365" value="' + escapeHtml(product.durationDays) + '" required /></label>' +
+        '<label class="field"><span class="field-label">Categoria</span><select class="field-control" name="categoryId">' + getCategoryOptions(product.categoryId) + '</select></label>' +
+        '<div class="vpn-form-grid"><label class="field"><span class="field-label">Preço fixo (R$)</span><input class="field-control" name="priceBRL" type="number" min="0.01" step="0.01" value="' + escapeHtml(Number(product.priceBRL).toFixed(2)) + '" required /></label>' +
+        '<label class="field"><span class="field-label">Validade</span><input class="field-control" name="durationDays" type="number" min="1" max="365" value="' + escapeHtml(product.durationDays) + '" required /></label>' +
         '<label class="field"><span class="field-label">Conexões</span><input class="field-control" name="connectionLimit" type="number" min="1" max="50" value="' + escapeHtml(product.connectionLimit) + '" required /></label>' +
-        '<label class="field"><span class="field-label">Tipo</span><select class="field-control" name="accessType"><option value="ssh" ' + (product.accessType === "ssh" ? "selected" : "") + '>SSH</option><option value="v2ray" ' + (product.accessType === "v2ray" ? "selected" : "") + '>V2Ray</option><option value="xray" ' + (product.accessType === "xray" ? "selected" : "") + '>XRay</option></select></label></div>' +
-        '<div class="vpn-admin-actions"><button class="button button-primary button-small" type="submit">Salvar</button><button class="button button-danger button-small" type="button" data-vpn-action="delete-product" data-product-id="' + escapeHtml(product.id) + '">Remover</button></div>' +
+        '<label class="field"><span class="field-label">Protocolo</span><select class="field-control" name="accessType"><option value="ssh" ' + (product.accessType === "ssh" ? "selected" : "") + '>SSH</option><option value="v2ray" ' + (product.accessType === "v2ray" ? "selected" : "") + '>V2Ray</option><option value="xray" ' + (product.accessType === "xray" ? "selected" : "") + '>XRay</option></select></label></div>' +
+        '<div class="vpn-admin-actions"><button type="submit" class="button button-primary button-small">Salvar alterações</button><button type="button" class="button button-danger button-small" data-vpn-action="delete-product" data-product-id="' + escapeHtml(product.id) + '">Remover</button></div>' +
       '</form>' +
     '</article>';
   }
 
-  async function loadAdminSection(section) {
-    if (state.adminLoading) return;
+  function updateCategoryCounts() {
+    const rows = Array.from(document.querySelectorAll(".category-list .category-row"));
+    rows.forEach(function (row) {
+      const strong = row.querySelector("strong");
+      const countNode = row.querySelector("span");
+      if (!strong || !countNode) return;
+      if (!row.dataset.vpnBaseCount) {
+        const found = String(countNode.textContent || "").match(/\d+/);
+        row.dataset.vpnBaseCount = found ? found[0] : "0";
+      }
+      const base = Number(row.dataset.vpnBaseCount || 0);
+      const name = String(strong.textContent || "").trim().toLowerCase();
+      const vpnCount = state.products.filter(function (item) { return productCategory(item).trim().toLowerCase() === name; }).length;
+      const total = base + vpnCount;
+      countNode.textContent = total + " serviço" + (total === 1 ? "" : "s");
+    });
+  }
+
+  function injectAdminProductList() {
+    const current = session();
+    if (!current || current.role !== "admin") return;
+    document.querySelectorAll("[data-vpn-product-card]").forEach(function (node) { node.remove(); });
+    const headings = Array.from(document.querySelectorAll(".section-heading h2"));
+    const title = headings.find(function (node) { return /produtos cadastrados/i.test(node.textContent || ""); });
+    if (!title) return;
+    const heading = title.closest(".section-heading");
+    const originalNext = heading && heading.nextElementSibling;
+    let list = originalNext && originalNext.classList.contains("service-list") ? originalNext : null;
+    if (!list) {
+      list = document.createElement("div");
+      list.className = "service-list";
+      list.setAttribute("data-vpn-created-list", "true");
+      heading.insertAdjacentElement("afterend", list);
+    }
+    if (originalNext && originalNext.classList.contains("empty-state")) {
+      originalNext.style.display = state.products.length ? "none" : "";
+    }
+    state.products.forEach(function (product) {
+      const wrap = document.createElement("div");
+      wrap.innerHTML = vpnAdminProductCard(product);
+      list.appendChild(wrap.firstElementChild);
+    });
+    updateCategoryCounts();
+  }
+
+  async function refreshAdminProducts() {
+    const current = session();
+    if (!current || current.role !== "admin" || state.adminLoading) return;
     state.adminLoading = true;
     try {
-      const results = await Promise.all([api("/admin/vpn/status"), api("/admin/vpn/products")]);
-      const status = results[0];
-      const products = results[1];
-      if (!document.body.contains(section)) return;
-      section.innerHTML = '<div class="vpn-admin-heading"><div><span class="vpn-badge">SERVIÇO AUTOMÁTICO</span><h2>Categoria VPN</h2><p>Crie acessos com validade automática. A chave da API fica somente no servidor.</p></div><span class="vpn-provider-state ' + (status.configured ? "ok" : "off") + '">' + (status.configured ? "API CONFIGURADA" : "CONFIGURE A API") + '</span></div>' +
-        '<div class="vpn-admin-metrics"><span><strong>' + escapeHtml(status.enabledProducts) + '</strong> ativos</span><span><strong>' + escapeHtml(status.activeOrders) + '</strong> acessos criados</span></div>' +
-        '<details class="vpn-create-details" open><summary>Adicionar serviço VPN</summary><form class="form-stack" data-vpn-form="create-product">' +
-          '<label class="field"><span class="field-label">Nome do serviço</span><input class="field-control" name="name" maxlength="90" value="VPN 30 dias" required /></label>' +
-          '<label class="field"><span class="field-label">Descrição</span><textarea class="field-control field-textarea" name="description" maxlength="500" placeholder="Ex.: Acesso VPN individual por 30 dias"></textarea></label>' +
-          '<div class="vpn-form-grid"><label class="field"><span class="field-label">Preço (R$)</span><input class="field-control" name="priceBRL" type="number" min="0.01" step="0.01" placeholder="Ex.: 25,00" required /></label>' +
-          '<label class="field"><span class="field-label">Validade</span><input class="field-control" name="durationDays" type="number" min="1" max="365" value="30" required /></label>' +
-          '<label class="field"><span class="field-label">Conexões</span><input class="field-control" name="connectionLimit" type="number" min="1" max="50" value="1" required /></label>' +
-          '<label class="field"><span class="field-label">Tipo</span><select class="field-control" name="accessType"><option value="ssh">SSH</option><option value="v2ray">V2Ray</option><option value="xray">XRay</option></select></label></div>' +
-          '<button class="button button-primary" type="submit">Adicionar serviço VPN</button></form></details>' +
-        '<div class="vpn-admin-list">' + (products.length ? products.map(adminProductCard).join("") : '<div class="vpn-empty">Nenhum serviço VPN cadastrado.</div>') + '</div>';
+      const results = await Promise.all([api("/admin/vpn/products"), api("/admin/vpn/status")]);
+      state.products = Array.isArray(results[0]) ? results[0] : [];
+      state.providerStatus = results[1] || null;
+      injectAdminProductList();
+      const note = document.querySelector("[data-vpn-provider-note]");
+      if (note) note.textContent = providerStatusText();
     } catch (error) {
-      if (Number(error.status) === 404) {
-        section.remove();
-      } else if (document.body.contains(section)) {
-        section.innerHTML = '<div class="vpn-empty">Não foi possível carregar a categoria VPN: ' + escapeHtml(error.message) + '</div>';
-      }
+      if (Number(error.status) !== 404) console.warn("VPN admin unavailable", error);
     } finally {
       state.adminLoading = false;
     }
   }
 
-  function injectAdmin() {
+  function setAddFormMode(form) {
+    const mode = form.querySelector("[data-vpn-product-kind]")?.value || "smm";
+    const serviceIdInput = form.querySelector('input[name="serviceId"]');
+    const serviceIdField = serviceIdInput && serviceIdInput.closest(".field");
+    const nameInput = form.querySelector('input[name="customName"]');
+    const priceInput = form.querySelector('input[name="pricePerThousandBRL"]');
+    const priceField = priceInput && priceInput.closest(".field");
+    const priceLabel = priceField && priceField.querySelector(".field-label");
+    const priceHelper = priceField && priceField.querySelector(".helper");
+    const extras = form.querySelector("[data-vpn-extra-fields]");
+    const submit = form.querySelector('button[type="submit"]');
+    const vpn = mode === "vpn";
+
+    if (serviceIdField) serviceIdField.style.display = vpn ? "none" : "";
+    if (serviceIdInput) serviceIdInput.required = !vpn;
+    if (nameInput) {
+      nameInput.required = vpn;
+      if (vpn && !String(nameInput.value || "").trim()) nameInput.value = "VPN 30 dias";
+    }
+    if (priceLabel) priceLabel.textContent = vpn ? "Preço fixo do acesso" : "Preço cobrado por 1.000";
+    if (priceHelper) priceHelper.textContent = vpn ? "Valor total em Real cobrado por cada acesso VPN criado." : "Valor em Real brasileiro que o usuário pagará por cada 1.000 unidades.";
+    if (extras) extras.style.display = vpn ? "grid" : "none";
+    if (submit) submit.innerHTML = vpn ? "Adicionar produto VPN" : "Validar e adicionar";
+  }
+
+  function enhanceAdminAddForm() {
     const current = session();
     if (!current || current.role !== "admin") return;
-    if (document.querySelector("[data-vpn-admin]")) return;
-    const heading = Array.from(document.querySelectorAll("h1")).find(function (node) { return /painel administrativo/i.test(node.textContent || ""); });
-    const metrics = document.querySelector(".metrics");
-    if (!heading || !metrics) return;
-    const section = document.createElement("section");
-    section.className = "card vpn-admin-section";
-    section.setAttribute("data-vpn-admin", "true");
-    section.innerHTML = '<div class="vpn-loading">Carregando categoria VPN…</div>';
-    metrics.insertAdjacentElement("afterend", section);
-    loadAdminSection(section);
+    const form = document.querySelector('[data-form="add-service"]');
+    if (!form || form.dataset.vpnEnhanced === "true") return;
+    form.dataset.vpnEnhanced = "true";
+
+    const typeField = document.createElement("label");
+    typeField.className = "field vpn-kind-field";
+    typeField.innerHTML = '<span class="field-label">Tipo do produto</span><select class="field-control" data-vpn-product-kind><option value="smm">Serviço SMM / redes sociais</option><option value="vpn">Acesso VPN automático</option></select><span class="helper">O VPN usa as mesmas categorias desta tela; não cria uma aba separada.</span>';
+    form.prepend(typeField);
+
+    const extras = document.createElement("div");
+    extras.className = "vpn-form-grid vpn-add-extra-fields";
+    extras.setAttribute("data-vpn-extra-fields", "true");
+    extras.innerHTML = '<label class="field"><span class="field-label">Validade</span><input class="field-control" name="vpnDurationDays" type="number" min="1" max="365" value="30" /></label>' +
+      '<label class="field"><span class="field-label">Conexões</span><input class="field-control" name="vpnConnectionLimit" type="number" min="1" max="50" value="1" /></label>' +
+      '<label class="field"><span class="field-label">Protocolo</span><select class="field-control" name="vpnAccessType"><option value="ssh">SSH</option><option value="v2ray">V2Ray</option><option value="xray">XRay</option></select></label>' +
+      '<div class="field vpn-provider-note"><span class="field-label">Automação</span><div class="smm-readonly-field" data-vpn-provider-note>' + escapeHtml(providerStatusText()) + '</div></div>';
+    const priceInput = form.querySelector('input[name="pricePerThousandBRL"]');
+    const priceField = priceInput && priceInput.closest(".field");
+    if (priceField) priceField.insertAdjacentElement("afterend", extras); else form.appendChild(extras);
+
+    form.querySelector("[data-vpn-product-kind]").addEventListener("change", function () { setAddFormMode(form); });
+    setAddFormMode(form);
+    refreshAdminProducts();
+  }
+
+  async function createVpnFromCatalogForm(form) {
+    const submit = form.querySelector('button[type="submit"]');
+    const original = submit ? submit.innerHTML : "";
+    if (submit) { submit.disabled = true; submit.textContent = "Criando VPN…"; }
+    try {
+      const values = Object.fromEntries(new FormData(form).entries());
+      const price = Number(String(values.pricePerThousandBRL || "").replace(",", "."));
+      if (!Number.isFinite(price) || price <= 0) throw new Error("Informe o preço fixo do acesso VPN.");
+      const body = {
+        name: String(values.customName || "").trim() || "VPN 30 dias",
+        description: String(values.description || "").trim(),
+        categoryId: values.categoryId ? Number(values.categoryId) : null,
+        priceBRL: Number(price.toFixed(2)),
+        durationDays: Number(values.vpnDurationDays || 30),
+        connectionLimit: Number(values.vpnConnectionLimit || 1),
+        accessType: values.vpnAccessType || "ssh",
+      };
+      await api("/admin/vpn/products", { method: "POST", body: body });
+      toast("Produto VPN adicionado na categoria selecionada.");
+      if (form.querySelector('input[name="customName"]')) form.querySelector('input[name="customName"]').value = "VPN 30 dias";
+      if (form.querySelector('textarea[name="description"]')) form.querySelector('textarea[name="description"]').value = "";
+      if (form.querySelector('input[name="pricePerThousandBRL"]')) form.querySelector('input[name="pricePerThousandBRL"]').value = "";
+      await refreshAdminProducts();
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (submit && document.body.contains(submit)) { submit.disabled = false; submit.innerHTML = original; setAddFormMode(form); }
+    }
+  }
+
+  async function saveVpnProduct(form) {
+    const submit = form.querySelector('button[type="submit"]');
+    const original = submit ? submit.innerHTML : "";
+    if (submit) { submit.disabled = true; submit.textContent = "Salvando…"; }
+    try {
+      const values = Object.fromEntries(new FormData(form).entries());
+      await api("/admin/vpn/products/" + encodeURIComponent(form.dataset.productId), {
+        method: "PATCH",
+        body: {
+          name: values.name,
+          description: values.description || "",
+          categoryId: values.categoryId ? Number(values.categoryId) : null,
+          priceBRL: Number(String(values.priceBRL || "").replace(",", ".")),
+          durationDays: Number(values.durationDays || 30),
+          connectionLimit: Number(values.connectionLimit || 1),
+          accessType: values.accessType || "ssh",
+        },
+      });
+      toast("Produto VPN atualizado.");
+      await refreshAdminProducts();
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (submit && document.body.contains(submit)) { submit.disabled = false; submit.innerHTML = original; }
+    }
   }
 
   async function buyProduct(productId, button) {
@@ -233,38 +384,19 @@
     }
   }
 
-  document.addEventListener("submit", async function (event) {
-    const form = event.target.closest("[data-vpn-form]");
-    if (!form) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const submit = form.querySelector('button[type="submit"]');
-    const original = submit ? submit.innerHTML : "";
-    if (submit) { submit.disabled = true; submit.textContent = "Salvando…"; }
-    try {
-      const values = Object.fromEntries(new FormData(form).entries());
-      const body = {
-        name: values.name,
-        description: values.description || "",
-        priceBRL: Number(String(values.priceBRL || "").replace(",", ".")),
-        durationDays: Number(values.durationDays || 30),
-        connectionLimit: Number(values.connectionLimit || 1),
-        accessType: values.accessType || "ssh",
-      };
-      if (form.dataset.vpnForm === "create-product") {
-        await api("/admin/vpn/products", { method: "POST", body: body });
-        toast("Serviço VPN adicionado.");
-        form.reset();
-      } else if (form.dataset.vpnForm === "edit-product") {
-        await api("/admin/vpn/products/" + encodeURIComponent(form.dataset.productId), { method: "PATCH", body: body });
-        toast("Serviço VPN atualizado.");
-      }
-      const section = document.querySelector("[data-vpn-admin]");
-      if (section) { state.adminLoading = false; await loadAdminSection(section); }
-    } catch (error) {
-      toast(error.message, true);
-    } finally {
-      if (submit && document.body.contains(submit)) { submit.disabled = false; submit.innerHTML = original; }
+  document.addEventListener("submit", function (event) {
+    const addForm = event.target.closest('[data-form="add-service"]');
+    if (addForm && addForm.querySelector("[data-vpn-product-kind]")?.value === "vpn") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      createVpnFromCatalogForm(addForm);
+      return;
+    }
+    const vpnForm = event.target.closest('[data-vpn-form="edit-product"]');
+    if (vpnForm) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      saveVpnProduct(vpnForm);
     }
   }, true);
 
@@ -296,27 +428,26 @@
       if (action === "toggle-product") {
         const enabled = button.dataset.enabled === "true";
         await api("/admin/vpn/products/" + encodeURIComponent(button.dataset.productId), { method: "PATCH", body: { enabled: !enabled } });
-        toast(enabled ? "Serviço VPN pausado." : "Serviço VPN ativado.");
+        toast(enabled ? "Produto VPN pausado." : "Produto VPN ativado.");
       } else if (action === "delete-product") {
-        if (!window.confirm("Remover este serviço VPN? Se já houve vendas, ele será apenas desativado.")) return;
+        if (!window.confirm("Remover este produto VPN? Se já houve vendas, ele será apenas desativado.")) return;
         await api("/admin/vpn/products/" + encodeURIComponent(button.dataset.productId), { method: "DELETE" });
-        toast("Serviço VPN removido/desativado.");
+        toast("Produto VPN removido/desativado.");
       }
-      const section = document.querySelector("[data-vpn-admin]");
-      if (section) { state.adminLoading = false; await loadAdminSection(section); }
+      await refreshAdminProducts();
     } catch (error) {
       toast(error.message, true);
     }
   }, true);
 
   const observer = new MutationObserver(function () {
-    injectAdmin();
+    enhanceAdminAddForm();
     injectMemberProducts();
     injectMemberHistory();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  injectAdmin();
+  enhanceAdminAddForm();
   injectMemberProducts();
   injectMemberHistory();
 })();
