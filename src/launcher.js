@@ -4,12 +4,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const srcDirectory = path.dirname(fileURLToPath(import.meta.url));
 const originalServerPath = path.join(srcDirectory, "server.js");
-const runtimeServerPath = path.join(srcDirectory, ".tw-store-server-2.2.runtime.mjs");
+const runtimeServerPath = path.join(srcDirectory, ".tw-store-server-2.3.runtime.mjs");
 
 function injectOnce(source, anchor, replacement, label) {
   if (source.includes(replacement)) return source;
   if (!source.includes(anchor)) {
-    throw new Error(`Não foi possível preparar a atualização 2.2: ponto '${label}' não encontrado em src/server.js.`);
+    throw new Error(`Não foi possível preparar a atualização 2.3: ponto '${label}' não encontrado em src/server.js.`);
   }
   return source.replace(anchor, replacement);
 }
@@ -23,28 +23,28 @@ let serverSource = fs.readFileSync(originalServerPath, "utf8");
 serverSource = injectOnce(
   serverSource,
   'import { SmmClient } from "./smm-client.js";',
-  'import { SmmClient } from "./smm-client.js";\nimport { createSupportFeatures } from "./support-features.js";',
-  "import do SmmClient",
+  'import { SmmClient } from "./smm-client.js";\nimport { createSupportFeatures } from "./support-features.js";\nimport { createVpnFeatures } from "./vpn-features.js";',
+  "imports de recursos adicionais",
 );
 
 serverSource = injectOnce(
   serverSource,
   "const legacyApp = await createApp({ config, db, smm, mercadoPago });",
-  "const supportFeatures = await createSupportFeatures({ config, db });\nconst legacyApp = await createApp({ config, db, smm, mercadoPago });",
-  "criação do legacyApp",
+  "const supportFeatures = await createSupportFeatures({ config, db });\nconst vpnFeatures = await createVpnFeatures({ config, db });\nconst legacyApp = await createApp({ config, db, smm, mercadoPago });",
+  "criação dos recursos adicionais",
 );
 
 serverSource = injectOnce(
   serverSource,
   'app.set("trust proxy", 1);\napp.use(catalogRouter);',
-  'app.set("trust proxy", 1);\napp.use(supportFeatures.router);\napp.use(catalogRouter);',
-  "montagem do catalogRouter",
+  'app.set("trust proxy", 1);\napp.use(supportFeatures.router);\napp.use(vpnFeatures.router);\napp.use(catalogRouter);',
+  "montagem dos routers",
 );
 
 serverSource = injectOnce(
   serverSource,
   "await Promise.allSettled([db.close(), catalogPool.end()]);",
-  "await Promise.allSettled([db.close(), catalogPool.end(), supportFeatures.close()]);",
+  "await Promise.allSettled([db.close(), catalogPool.end(), supportFeatures.close(), vpnFeatures.close()]);",
   "encerramento do servidor",
 );
 

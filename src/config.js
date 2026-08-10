@@ -39,6 +39,10 @@ export function loadConfig(env = process.env) {
     mercadoPagoAccessToken: String(env.MP_ACCESS_TOKEN || env.MERCADO_PAGO_ACCESS_TOKEN || "").trim(),
     mercadoPagoWebhookSecret: String(env.MP_WEBHOOK_SECRET || env.MERCADO_PAGO_WEBHOOK_SECRET || "").trim(),
     mercadoPagoTimeoutMs: integer(env.MP_TIMEOUT_MS, 20_000, 2_000, 60_000),
+    jardelApiUrl: normalizeUrl(env.JARDEL_API_URL, "https://jardelnet.vpnconfig.xyz"),
+    jardelApiAccount: String(env.JARDEL_API_ACCOUNT || env.JARDEL_API_KEY || "").trim(),
+    jardelApiCreatePath: String(env.JARDEL_API_CREATE_PATH || "/api/usuario/criar.php").trim(),
+    jardelApiTimeoutMs: integer(env.JARDEL_API_TIMEOUT_MS, 20_000, 2_000, 60_000),
     publicBaseUrl: normalizeUrl(
       env.PUBLIC_BASE_URL,
       railwayPublicUrl || "https://hype-equipe-production.up.railway.app",
