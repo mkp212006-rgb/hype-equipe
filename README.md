@@ -1,121 +1,93 @@
-# Hype Equipe
+# Tw Store Backend
 
-Projeto recuperado do APK `Hype-Equipe.apk` e preparado para GitHub, Railway e Android Studio. O repositório reúne:
+Backend do aplicativo Tw Store.
 
-- interface web/mobile original, com o endereço do servidor configurável;
-- API Node.js/Express;
-- banco PostgreSQL;
-- usuário administrador criado na primeira inicialização;
-- código compartilhado da equipe com invalidação de sessões;
-- catálogo sincronizado pela API da SMMHype;
-- pedidos reais com chave de idempotência, histórico, atualização, reposição e cancelamento;
-- healthcheck, Dockerfile, configuração Railway e testes automatizados;
-- fonte Android WebView recomposto.
+## Recursos
 
-## Servidor em produção
+- Cadastro e login individual por usuário e senha.
+- Carteira individual em BRL, iniciando em R$ 0,00.
+- Recargas via Mercado Pago Checkout Pro.
+- Taxa fixa de 5% sobre o valor que será creditado na carteira.
+- Crédito somente após webhook do Mercado Pago confirmar pagamento `approved`.
+- Webhook com validação HMAC e idempotência para impedir crédito duplicado.
+- Pedidos debitados da carteira com cálculo no servidor.
+- Preço de venda por 1.000 configurável pelo administrador por serviço.
+- Tarifa da SMMHype mantida separada do preço de venda.
+- Categorias administrativas compartilhadas entre todos os celulares.
+- Nome personalizado e descrição por serviço, preservados ao sincronizar com o fornecedor.
+- Histórico de pedidos exibindo o nome personalizado atual do serviço.
+- Compatibilidade com os endpoints usados pelo APK Tw Store.
 
-- Aplicativo: <https://hype-equipe-production.up.railway.app>
-- Healthcheck: <https://hype-equipe-production.up.railway.app/health>
+## Cálculo de pedidos
 
-O Android 2.1.1 usa esse endereço por padrão. `HYPE_SERVER_URL` continua disponível para compilações que precisem apontar para outro ambiente.
+`valor = quantidade / 1000 * preço_por_1000`
 
-## Segurança importante
+O APK pode exibir uma estimativa, mas o backend ignora qualquer preço enviado pelo cliente e recalcula pelo valor salvo no banco.
 
-As variáveis `ADMIN_PASSWORD`, `JWT_SECRET` e `SMM_API_KEY` são segredos. Defina-as somente no Railway ou em um arquivo `.env` local, que já está bloqueado pelo `.gitignore`. Nunca coloque essas informações em commits, capturas de tela ou arquivos públicos.
+## Variáveis obrigatórias no Railway
 
-O administrador inicial é criado somente quando o banco ainda não possui esse usuário. A primeira senha fica armazenada no PostgreSQL como hash `scrypt`, nunca em texto puro. No primeiro acesso, o painel solicita a troca da senha.
-
-## Rodar localmente
-
-Requisitos: Node.js 22+, npm e PostgreSQL 15+ (ou Docker).
-
-```bash
-cp .env.example .env
-docker compose up -d postgres
-npm install
-npm start
+```env
+DATABASE_URL=...
+JWT_SECRET=...
+ADMIN_USERNAME=...
+ADMIN_PASSWORD=...
+SMMHYPE_API_URL=...
+SMMHYPE_API_KEY=...
+MERCADO_PAGO_ACCESS_TOKEN=...
+MERCADO_PAGO_WEBHOOK_SECRET=...
+PUBLIC_BASE_URL=https://hype-equipe-production.up.railway.app
 ```
 
-Antes de iniciar, edite o `.env` e defina pelo menos:
+Variáveis opcionais:
 
-```dotenv
-DATABASE_URL=postgresql://hype:hype_dev@localhost:5432/hype_equipe
-DATABASE_SSL=false
-JWT_SECRET=gere-com-npm-run-secret
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=uma-senha-privada-com-12-ou-mais-caracteres
-SMM_API_URL=https://smmhype.com/api/v2
-SMM_API_KEY=sua-chave-privada
+```env
+SMMHYPE_PROVIDER_CURRENCY=USD
+SMMHYPE_RATE_TO_BRL=1
 ```
 
-Gere um segredo forte com:
+Se a tarifa retornada pela SMMHype estiver em USD, configure `SMMHYPE_RATE_TO_BRL` com o multiplicador usado apenas para exibir o custo do fornecedor em BRL no painel. O preço cobrado do cliente é sempre `pricePerThousandBRL` definido pelo admin e não depende desse multiplicador.
 
-```bash
-npm run secret
-```
+## PostgreSQL
 
-Acesse `http://localhost:3000`. Se `INITIAL_TEAM_CODE` ficar vazio, entre como administrador e crie o código da equipe no próprio painel.
+O serviço exige PostgreSQL e executa as migrations automaticamente no início. No Railway, adicione um serviço PostgreSQL e disponibilize `DATABASE_URL` para este backend.
 
-## Implantar no Railway
+## Mercado Pago
 
-1. Envie este projeto para um repositório privado no GitHub.
-2. No Railway, crie um projeto a partir desse repositório.
-3. Adicione um serviço PostgreSQL ao mesmo projeto.
-4. No serviço do aplicativo, crie estas variáveis privadas:
+A recarga usa Checkout Pro. O backend cria uma preferência cobrando `valor_do_crédito + 5%`, salva a referência da recarga e devolve `checkoutUrl` ao aplicativo.
 
-   | Variável | Valor |
-   | --- | --- |
-   | `DATABASE_URL` | referência à `DATABASE_URL` do PostgreSQL |
-   | `DATABASE_SSL` | `false` para a conexão privada interna |
-   | `JWT_SECRET` | resultado de `npm run secret` |
-   | `ADMIN_USERNAME` | usuário administrativo desejado |
-   | `ADMIN_PASSWORD` | senha administrativa inicial |
-   | `SMM_API_URL` | URL informada na página de API da conta SMMHype |
-   | `SMM_API_KEY` | chave privada da conta SMMHype |
-   | `NODE_ENV` | `production` |
+A URL de webhook é:
 
-5. Gere um domínio público HTTPS em **Settings > Networking > Generate Domain**.
-6. Confirme `https://seu-dominio.up.railway.app/health`. A resposta deve conter `"status":"ok"`.
+`https://hype-equipe-production.up.railway.app/webhooks/mercadopago`
 
-O `railway.toml` já configura `/health`, e o servidor escuta automaticamente a variável `PORT` fornecida pelo Railway.
+Cadastre o evento de pagamentos no painel do Mercado Pago e salve a assinatura secreta em `MERCADO_PAGO_WEBHOOK_SECRET`.
 
-## Compilar o Android
+## Endpoints principais
 
-Abra a pasta `android/` no Android Studio. Em `android/local.properties`, mantenha o `sdk.dir` criado pelo Android Studio e acrescente:
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /admin/login`
+- `GET /api/services`
+- `GET /api/orders`
+- `POST /api/orders`
+- `GET /api/wallet`
+- `POST /api/wallet/deposits`
+- `POST /webhooks/mercadopago`
+- `GET /admin/categories`
+- `POST /admin/categories`
+- `PATCH /admin/categories/:categoryId`
+- `DELETE /admin/categories/:categoryId`
+- `GET /admin/services`
+- `POST /admin/services`
+- `PATCH /admin/services/:serviceId`
+- `POST /admin/services/:serviceId/sync`
+- `DELETE /admin/services/:serviceId`
+- `GET /admin/summary`
 
-```properties
-HYPE_SERVER_URL=https://seu-dominio.up.railway.app
-```
+## Deploy Railway
 
-Depois use **Build > Generate Signed App Bundle or APK**. Guarde o keystore e sua senha em local seguro: ele é indispensável para publicar futuras atualizações do mesmo aplicativo.
+Railway detecta `package.json` via Railpack e executa `npm start`. O arquivo `railway.toml` configura healthcheck em `/health`.
 
-O workflow **Android APK** também gera automaticamente um APK de teste na primeira publicação do repositório. Ele serve para validação interna; para distribuição contínua, gere um APK de release assinado com o seu keystore permanente.
 
-O APK recebido estava assinado, mas não contém a chave privada original. Sem o keystore original, o Android não aceita a nova compilação como atualização por cima da instalação antiga. Nesse caso, desinstale o APK anterior antes de instalar o novo ou altere o `applicationId`.
+## Atualização 2.1 — Categorias e personalização
 
-## Testes
-
-```bash
-npm run check
-npm test
-npm audit --omit=dev
-```
-
-## Rotas principais
-
-| Método | Rota | Uso |
-| --- | --- | --- |
-| `GET` | `/health` | saúde do servidor e banco |
-| `POST` | `/admin/login` | login administrativo |
-| `POST` | `/admin/password` | troca segura da senha admin |
-| `POST` | `/admin/team-code` | define o código da equipe |
-| `GET/POST` | `/admin/services` | catálogo da operação |
-| `POST` | `/auth/login` | login dos membros |
-| `GET/POST` | `/api/orders` | histórico e novo pedido |
-| `POST` | `/api/orders/:id/refresh` | atualização do pedido |
-| `POST` | `/api/orders/:id/refill` | solicitação de reposição |
-| `POST` | `/api/orders/:id/cancel` | solicitação de cancelamento |
-
-## Observação sobre a SMMHype
-
-O conector usa o formato padrão de API SMM (`services`, `balance`, `add`, `status`, `refill` e `cancel`). Antes de enviar um pedido real, confirme no painel da sua conta a URL da API e se cancelamento/reposição estão habilitados para o serviço escolhido. A interface mantém uma confirmação explícita antes de qualquer pedido que possa descontar saldo.
+Ao iniciar, a migration cria `service_categories` e adiciona `custom_name`, `description` e `category_id` à tabela `services` sem apagar os dados existentes. A sincronização do fornecedor atualiza apenas os dados técnicos/originais e preserva nome personalizado, descrição e categoria definida pelo administrador.
