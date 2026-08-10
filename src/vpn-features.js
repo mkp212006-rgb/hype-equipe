@@ -89,6 +89,8 @@ function productFromRow(row) {
     durationDays: Number(row.duration_days),
     connectionLimit: Number(row.connection_limit),
     accessType: row.access_type,
+    categoryId: row.category_id == null ? null : Number(row.category_id),
+    categoryName: row.category_name || "Sem categoria",
     enabled: Boolean(row.enabled),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -220,6 +222,23 @@ export async function createVpnFeatures({ config, db }) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    ALTER TABLE vpn_products ADD COLUMN IF NOT EXISTS category_id BIGINT;
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'vpn_products_category_id_fkey'
+          AND conrelid = 'vpn_products'::regclass
+      ) THEN
+        ALTER TABLE vpn_products
+          ADD CONSTRAINT vpn_products_category_id_fkey
+          FOREIGN KEY (category_id) REFERENCES service_categories(id) ON DELETE SET NULL;
+      END IF;
+    END $$;
+
+    CREATE INDEX IF NOT EXISTS vpn_products_category_id_idx ON vpn_products(category_id);
+
     CREATE TABLE IF NOT EXISTS vpn_orders (
       id UUID PRIMARY KEY,
       idempotency_key TEXT NOT NULL UNIQUE,
@@ -287,8 +306,22 @@ export async function createVpnFeatures({ config, db }) {
     };
   }
 
+  async function checkedCategoryId(value) {
+    if (value == null || value === "") return null;
+    const categoryId = positiveInteger(value, "Categoria", { max: Number.MAX_SAFE_INTEGER });
+    const result = await pool.query("SELECT id FROM service_categories WHERE id = $1", [categoryId]);
+    if (!result.rowCount) throw new HttpError(404, "Categoria não encontrada.");
+    return categoryId;
+  }
+
   router.get("/api/vpn/products", authenticate, requireRole("member"), async (_req, res) => {
-    const result = await pool.query("SELECT * FROM vpn_products WHERE enabled = TRUE ORDER BY id ASC");
+    const result = await pool.query(`
+      SELECT p.*, c.name AS category_name
+      FROM vpn_products p
+      LEFT JOIN service_categories c ON c.id = p.category_id
+      WHERE p.enabled = TRUE
+      ORDER BY c.sort_order NULLS LAST, c.name NULLS LAST, p.id ASC
+    `);
     res.json(result.rows.map(productFromRow));
   });
 
@@ -312,7 +345,13 @@ export async function createVpnFeatures({ config, db }) {
         await client.query("COMMIT");
         return res.json(orderFromRow(existing.rows[0], config));
       }
-      const productResult = await client.query("SELECT * FROM vpn_products WHERE id = $1 AND enabled = TRUE FOR SHARE", [productId]);
+      const productResult = await client.query(`
+        SELECT p.*, c.name AS category_name
+        FROM vpn_products p
+        LEFT JOIN service_categories c ON c.id = p.category_id
+        WHERE p.id = $1 AND p.enabled = TRUE
+        FOR SHARE OF p
+      `, [productId]);
       if (!productResult.rowCount) throw new HttpError(404, "Esse acesso VPN não está disponível.");
       product = productFromRow(productResult.rows[0]);
       const userResult = await client.query("SELECT name FROM users WHERE username = $1", [req.auth.sub]);
@@ -416,7 +455,12 @@ export async function createVpnFeatures({ config, db }) {
   });
 
   router.get("/admin/vpn/products", authenticate, requireRole("admin"), async (_req, res) => {
-    const result = await pool.query("SELECT * FROM vpn_products ORDER BY id ASC");
+    const result = await pool.query(`
+      SELECT p.*, c.name AS category_name
+      FROM vpn_products p
+      LEFT JOIN service_categories c ON c.id = p.category_id
+      ORDER BY c.sort_order NULLS LAST, c.name NULLS LAST, p.id ASC
+    `);
     res.json(result.rows.map(productFromRow));
   });
 
@@ -427,13 +471,18 @@ export async function createVpnFeatures({ config, db }) {
     const durationDays = positiveInteger(req.body?.durationDays ?? 30, "Duração", { min: 1, max: 365 });
     const connectionLimit = positiveInteger(req.body?.connectionLimit ?? 1, "Limite de conexões", { min: 1, max: 50 });
     const accessType = userType(req.body?.accessType);
+    const categoryId = await checkedCategoryId(req.body?.categoryId);
     const enabled = req.body?.enabled == null ? true : Boolean(req.body.enabled);
     const result = await pool.query(
-      `INSERT INTO vpn_products (name, description, price_brl, duration_days, connection_limit, access_type, enabled)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [name, description, priceBRL, durationDays, connectionLimit, accessType, enabled],
+      `INSERT INTO vpn_products (name, description, price_brl, duration_days, connection_limit, access_type, category_id, enabled)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, description, priceBRL, durationDays, connectionLimit, accessType, categoryId, enabled],
     );
-    res.status(201).json(productFromRow(result.rows[0]));
+    const created = await pool.query(`
+      SELECT p.*, c.name AS category_name FROM vpn_products p
+      LEFT JOIN service_categories c ON c.id = p.category_id WHERE p.id = $1
+    `, [result.rows[0].id]);
+    res.status(201).json(productFromRow(created.rows[0]));
   });
 
   router.patch("/admin/vpn/products/:id", authenticate, requireRole("admin"), async (req, res) => {
@@ -447,13 +496,20 @@ export async function createVpnFeatures({ config, db }) {
     const durationDays = req.body?.durationDays == null ? Number(row.duration_days) : positiveInteger(req.body.durationDays, "Duração", { min: 1, max: 365 });
     const connectionLimit = req.body?.connectionLimit == null ? Number(row.connection_limit) : positiveInteger(req.body.connectionLimit, "Limite de conexões", { min: 1, max: 50 });
     const accessType = req.body?.accessType == null ? row.access_type : userType(req.body.accessType);
+    const categoryId = Object.prototype.hasOwnProperty.call(req.body || {}, "categoryId")
+      ? await checkedCategoryId(req.body.categoryId)
+      : row.category_id;
     const enabled = req.body?.enabled == null ? Boolean(row.enabled) : Boolean(req.body.enabled);
-    const result = await pool.query(
+    await pool.query(
       `UPDATE vpn_products SET name=$2, description=$3, price_brl=$4, duration_days=$5,
-       connection_limit=$6, access_type=$7, enabled=$8, updated_at=NOW() WHERE id=$1 RETURNING *`,
-      [id, name, description, priceBRL, durationDays, connectionLimit, accessType, enabled],
+       connection_limit=$6, access_type=$7, category_id=$8, enabled=$9, updated_at=NOW() WHERE id=$1`,
+      [id, name, description, priceBRL, durationDays, connectionLimit, accessType, categoryId, enabled],
     );
-    res.json(productFromRow(result.rows[0]));
+    const updated = await pool.query(`
+      SELECT p.*, c.name AS category_name FROM vpn_products p
+      LEFT JOIN service_categories c ON c.id = p.category_id WHERE p.id = $1
+    `, [id]);
+    res.json(productFromRow(updated.rows[0]));
   });
 
   router.delete("/admin/vpn/products/:id", authenticate, requireRole("admin"), async (req, res) => {
