@@ -597,6 +597,10 @@
         linkInput.required = linkInput.dataset.vpnOriginalRequired === "true";
       }
       if (quantityInput) {
+        if (quantityInput.dataset.vpnAutoQuantity === "true") {
+          quantityInput.value = "";
+          delete quantityInput.dataset.vpnAutoQuantity;
+        }
         quantityInput.disabled = false;
         quantityInput.required = quantityInput.dataset.vpnOriginalRequired === "true";
       }
@@ -616,6 +620,7 @@
     }
     if (quantityInput) {
       quantityInput.value = "1";
+      quantityInput.dataset.vpnAutoQuantity = "true";
       quantityInput.min = "1";
       quantityInput.max = "1";
       quantityInput.disabled = true;
