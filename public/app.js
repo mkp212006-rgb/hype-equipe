@@ -1,7 +1,8 @@
 (function () {
   "use strict";
 
-  const SESSION_KEY = "hype-equipe.session.v2";
+  const SESSION_KEY = "tw-store.session.v3";
+  const CATALOG_KEY = "tw-store.catalog.v1";
   const DEFAULT_API_URL = "https://hype-equipe-production.up.railway.app";
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
@@ -17,6 +18,8 @@
     walletSupported: true,
     adminSummary: null,
     registrationUsername: "",
+    catalogConfig: loadJson(CATALOG_KEY) || { categories: [], serviceMeta: {} },
+    catalogServerSupported: false,
     error: "",
   };
 
@@ -61,6 +64,152 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+
+  function normalizeCatalogConfig(value) {
+    const source = value && typeof value === "object" ? value : {};
+    const categories = Array.isArray(source.categories) ? source.categories : [];
+    const serviceMeta = source.serviceMeta && typeof source.serviceMeta === "object" ? source.serviceMeta : {};
+    return {
+      categories: categories
+        .filter(function (item) { return item && item.id && item.name; })
+        .map(function (item) { return { id: String(item.id), name: String(item.name).trim() }; }),
+      serviceMeta,
+    };
+  }
+
+  function saveCatalogConfig() {
+    state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
+    localStorage.setItem(CATALOG_KEY, JSON.stringify(state.catalogConfig));
+  }
+
+  function cleanupAccidentalTestState() {
+    const savedSession = loadJson(SESSION_KEY);
+    const isSyntheticAdmin = Boolean(
+      savedSession &&
+      savedSession.token === "test" &&
+      String(savedSession.username || "").toLowerCase() === "admin" &&
+      String(savedSession.role || "").toLowerCase() === "admin"
+    );
+    if (isSyntheticAdmin) {
+      localStorage.removeItem(SESSION_KEY);
+      state.session = null;
+    }
+
+    const savedCatalog = loadJson(CATALOG_KEY);
+    const categories = savedCatalog && Array.isArray(savedCatalog.categories) ? savedCatalog.categories : [];
+    const meta = savedCatalog && savedCatalog.serviceMeta && typeof savedCatalog.serviceMeta === "object" ? savedCatalog.serviceMeta : {};
+    const isDemoCatalog = categories.length === 2 &&
+      categories.some(function (item) { return item && item.id === "c1" && item.name === "Instagram"; }) &&
+      categories.some(function (item) { return item && item.id === "c2" && item.name === "TikTok"; }) &&
+      meta["123"] && meta["123"].name === "Seguidores Premium";
+    if (isDemoCatalog) {
+      localStorage.removeItem(CATALOG_KEY);
+      state.catalogConfig = { categories: [], serviceMeta: {} };
+    }
+  }
+
+  function serviceMeta(serviceId) {
+    state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
+    return state.catalogConfig.serviceMeta[String(serviceId)] || {};
+  }
+
+  function categoryById(categoryId) {
+    if (!categoryId) return null;
+    state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
+    return state.catalogConfig.categories.find(function (item) { return item.id === String(categoryId); }) || null;
+  }
+
+  function serviceDisplayName(service) {
+    const meta = serviceMeta(service && service.service);
+    if (service && Object.prototype.hasOwnProperty.call(service, "customName")) {
+      return String(service.customName || service.name || "Serviço");
+    }
+    return String(
+      (service && service.displayName) ||
+      meta.name ||
+      (service && service.name) ||
+      "Serviço"
+    );
+  }
+
+  function serviceDescription(service) {
+    const meta = serviceMeta(service && service.service);
+    if (service && Object.prototype.hasOwnProperty.call(service, "description")) return String(service.description || "");
+    return String((service && service.customDescription) || meta.description || "");
+  }
+
+  function serviceCategoryName(service) {
+    const meta = serviceMeta(service && service.service);
+    if (service && Object.prototype.hasOwnProperty.call(service, "categoryName")) {
+      return String(service.categoryName || "Sem categoria");
+    }
+    const localCategory = categoryById(meta.categoryId);
+    return String(
+      (service && service.customCategory) ||
+      (localCategory && localCategory.name) ||
+      meta.categoryName ||
+      (service && service.category) ||
+      "Sem categoria"
+    );
+  }
+
+  function serviceCategoryId(service) {
+    if (service && Object.prototype.hasOwnProperty.call(service, "categoryId")) {
+      return service.categoryId == null || service.categoryId === "" ? "" : String(service.categoryId);
+    }
+    const meta = serviceMeta(service && service.service);
+    if (meta.categoryId && categoryById(meta.categoryId)) return String(meta.categoryId);
+    const currentName = serviceCategoryName(service);
+    const found = state.catalogConfig.categories.find(function (item) { return item.name.toLowerCase() === currentName.toLowerCase(); });
+    return found ? found.id : "";
+  }
+
+  function applyLocalServiceMeta(serviceId, values) {
+    const id = String(serviceId);
+    state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
+    const previous = state.catalogConfig.serviceMeta[id] || {};
+    state.catalogConfig.serviceMeta[id] = { ...previous, ...values };
+    saveCatalogConfig();
+  }
+
+  async function persistServicePresentation(serviceId, values) {
+    applyLocalServiceMeta(serviceId, values);
+    if (!state.catalogServerSupported) return false;
+    const category = categoryById(values.categoryId);
+    const categoryName = category ? category.name : (values.categoryName || "");
+    const primaryBody = {
+      customName: values.name || "",
+      description: values.description || "",
+      categoryId: values.categoryId ? Number(values.categoryId) : null,
+    };
+    try {
+      await client().request(`/admin/services/${serviceId}`, { method: "PATCH", body: primaryBody });
+      state.catalogServerSupported = true;
+      return true;
+    } catch (error) {
+      if (![400, 404, 422].includes(Number(error.status))) return false;
+      try {
+        await client().request(`/admin/services/${serviceId}`, {
+          method: "PATCH",
+          body: { customName: values.name || "", description: values.description || "", categoryName },
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  function orderDisplayName(order) {
+    const serviceId = firstNumber(order && order.serviceId, order && order.service, order && order.providerServiceId);
+    if (Number.isFinite(serviceId)) {
+      const service = state.services.find(function (item) { return Number(item.service) === Number(serviceId); });
+      if (service) return serviceDisplayName(service);
+      const meta = serviceMeta(serviceId);
+      if (meta.name) return meta.name;
+    }
+    return String(order && order.serviceName || "Serviço");
   }
 
   function normalizeApiUrl(value) {
@@ -153,22 +302,25 @@
   function brand() {
     return `
       <div class="brand">
-        <div class="brand-mark">H</div>
+        <div class="brand-mark brand-mark-image" aria-hidden="true"></div>
         <div>
-          <div class="brand-name">Hype Equipe</div>
-          <div class="brand-subtitle">Pedidos em um só lugar</div>
+          <div class="brand-name">Tw Store</div>
+          <div class="brand-subtitle">#Loja Online</div>
         </div>
+      </div>
+      <div class="brand-showcase" role="img" aria-label="Tw Store">
+        <img src="./tw-store-art.jpg" alt="Tw Store" />
       </div>`;
   }
 
   function topbar(title) {
     const member = state.session ? state.session.member : "";
-    const initial = String(member || "H").trim().charAt(0).toUpperCase();
+    const initial = String(member || "T").trim().charAt(0).toUpperCase();
     return `
       <header class="topbar">
         <div>
-          <div class="eyebrow">${escapeHtml(title || "Hype Equipe")}</div>
-          <div class="brand-name">Hype Equipe</div>
+          <div class="eyebrow">${escapeHtml(title || "Tw Store")}</div>
+          <div class="brand-name">Tw Store</div>
         </div>
         <div class="avatar" title="${escapeHtml(member)}">${escapeHtml(initial)}</div>
       </header>`;
@@ -195,7 +347,7 @@
   }
 
   function renderLoading() {
-    app.innerHTML = `<div class="loading-page"><div><div class="brand-mark">H</div><div class="spinner" style="margin:0 auto 13px"></div><div>Conectando ao servidor seguro…</div></div></div>`;
+    app.innerHTML = `<div class="loading-page"><div><div class="brand-mark brand-mark-image"></div><div class="spinner" style="margin:0 auto 13px"></div><div>Conectando ao servidor seguro…</div></div></div>`;
   }
 
   function renderLogin(adminMode) {
@@ -221,7 +373,7 @@
     app.innerHTML = shell(`
       ${brand()}
       <section class="auth-hero">
-        <div class="eyebrow">Sua conta Hype</div>
+        <div class="eyebrow">Sua conta Tw Store</div>
         <h1>Entrar</h1>
         <p class="subtitle">Use o usuário e a senha que você cadastrou para acessar sua carteira e fazer pedidos.</p>
       </section>
@@ -346,7 +498,7 @@
       <article class="card order-card">
         <div class="order-head">
           <div style="min-width:0">
-            <div class="order-title">${escapeHtml(order.serviceName)}</div>
+            <div class="order-title">${escapeHtml(orderDisplayName(order))}</div>
             <div class="order-meta">Pedido SMM #${escapeHtml(order.providerOrderId)} • ${dateTime(order.createdAt)}</div>
           </div>
           <span class="status-pill ${statusClass(order.status)}">${escapeHtml(translatedStatus(order.status))}</span>
@@ -367,7 +519,7 @@
     }).length;
     app.innerHTML = shell(`
       ${topbar(`Olá, ${state.session.member || "equipe"}`)}
-      <section class="page-heading"><h1>Visão geral</h1><p class="subtitle">Acompanhe a operação e envie pedidos diretamente à SMMHype.</p></section>
+      <section class="page-heading"><h1>Visão geral</h1><p class="subtitle">Acompanhe a operação e envie pedidos diretamente à Tw Store.</p></section>
       <section class="card balance-card">
         <div class="balance-row"><div><div class="balance-label">MINHA CARTEIRA</div><div class="balance-value">${state.wallet ? money(state.wallet.balance) : "—"}</div></div><span class="live-pill"><i class="live-dot"></i> SALDO</span></div>
         <button type="button" class="wallet-inline-button" data-nav="wallet">${icon("plus")} Adicionar saldo</button>
@@ -379,24 +531,90 @@
     `, true);
   }
 
+  function productCard(service, selected) {
+    const rate = serviceRateBRL(service);
+    const description = serviceDescription(service).trim();
+    const category = serviceCategoryName(service);
+    const displayName = serviceDisplayName(service);
+    const fallbackDescription = "Confira os limites e o valor antes de continuar.";
+    return `
+      <button type="button" class="product-card ${selected ? "selected" : ""}" data-action="select-product" data-service-id="${service.service}" data-product-card data-product-category="${escapeHtml(category)}" aria-pressed="${selected ? "true" : "false"}">
+        <span class="product-card-top">
+          <span class="product-category-badge">${escapeHtml(category)}</span>
+          <span class="product-selected-mark">${icon("check")}</span>
+        </span>
+        <span class="product-card-title">${escapeHtml(displayName)}</span>
+        <span class="product-card-description">${escapeHtml(description || fallbackDescription)}</span>
+        <span class="product-card-stats">
+          <span><small>Mínimo</small><b>${escapeHtml(service.min)}</b></span>
+          <span><small>Máximo</small><b>${escapeHtml(service.max)}</b></span>
+          <span class="product-card-id"><small>ID</small><b>#${escapeHtml(service.service)}</b></span>
+        </span>
+        <span class="product-card-footer">
+          <span class="product-card-price"><small>Preço por 1.000</small><strong>${Number.isFinite(rate) ? money(rate) : "—"}</strong></span>
+          <span class="product-card-cta">Selecionar ${icon("chevron")}</span>
+        </span>
+      </button>`;
+  }
+
   function renderNewOrder() {
-    const options = state.services.map(function (service) {
-      return `<option value="${service.service}">#${service.service} — ${escapeHtml(service.name)}</option>`;
-    }).join("");
+    const categories = Array.from(new Set(state.services.map(function (service) {
+      return serviceCategoryName(service);
+    }))).sort(function (a, b) { return a.localeCompare(b, "pt-BR"); });
+
     const first = state.services[0];
+    const firstCategory = first ? serviceCategoryName(first) : "";
+    const options = state.services.map(function (service) {
+      return `<option value="${service.service}">${escapeHtml(serviceDisplayName(service))}</option>`;
+    }).join("");
+    const categoryTabs = categories.map(function (category) {
+      return `<button type="button" class="product-category-chip" data-action="filter-products" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`;
+    }).join("");
+
     app.innerHTML = shell(`
       ${topbar("Nova solicitação")}
-      <section class="page-heading"><h1>Criar pedido</h1><p class="subtitle">Revise o serviço, o destino e a quantidade antes de confirmar.</p></section>
+      <section class="page-heading"><h1>Escolha seu produto</h1><p class="subtitle">Encontre o serviço ideal, confira os detalhes e finalize o pedido com segurança.</p></section>
       ${state.services.length ? `
-        <form class="card form-stack" data-form="new-order">
-          <label class="field"><span class="field-label">Produto disponível</span><select class="field-control" name="serviceId" data-order-service required>${options}</select><span class="helper" data-service-helper>Mínimo ${escapeHtml(first.min)} • Máximo ${escapeHtml(first.max)} • ${escapeHtml(first.category)}</span></label>
-          <label class="field"><span class="field-label">Link do perfil ou publicação</span><input class="field-control" name="link" type="url" inputmode="url" placeholder="https://instagram.com/..." required /></label>
-          <label class="field"><span class="field-label">Quantidade</span><input class="field-control" name="quantity" type="number" inputmode="numeric" min="${escapeHtml(first.min)}" max="${escapeHtml(first.max)}" placeholder="${escapeHtml(first.min)}" data-order-quantity required /></label>
-          <div class="cost-preview"><strong data-cost-preview>—</strong><span>Valor estimado em Real brasileiro. O servidor confere o valor final e o saldo da sua carteira antes de enviar.</span></div>
-          <div class="notice">${icon("shield")} <span>O pedido só deve ser liberado pelo servidor quando houver saldo individual suficiente na carteira.</span></div>
-          <button class="button button-primary" type="submit">${icon("check")} Revisar e enviar</button>
+        <form class="new-order-form" data-form="new-order">
+          <section class="product-picker" aria-label="Catálogo de produtos">
+            <div class="product-picker-heading">
+              <div><span class="eyebrow">Catálogo</span><h2>Produtos disponíveis</h2></div>
+              <span class="product-count">${state.services.length} ${state.services.length === 1 ? "produto" : "produtos"}</span>
+            </div>
+            <div class="product-category-tabs" aria-label="Filtrar por categoria">
+              <button type="button" class="product-category-chip active" data-action="filter-products" data-category="__all__">Todos</button>
+              ${categoryTabs}
+            </div>
+            <label class="product-native-select-wrap" aria-hidden="true"><span>Produto</span><select name="serviceId" data-order-service tabindex="-1">${options}</select></label>
+            <div class="product-grid" data-product-grid>
+              ${state.services.map(function (service, index) { return productCard(service, index === 0); }).join("")}
+            </div>
+          </section>
+
+          <section class="card order-config-card" data-order-config>
+            <div class="selected-product-summary">
+              <div class="selected-product-icon">${icon("box")}</div>
+              <div class="selected-product-copy">
+                <span>Produto selecionado</span>
+                <strong data-selected-product-name>${escapeHtml(serviceDisplayName(first))}</strong>
+                <small data-service-helper>${escapeHtml(firstCategory)} • mínimo ${escapeHtml(first.min)} • máximo ${escapeHtml(first.max)}</small>
+              </div>
+            </div>
+            <div class="service-description selected-description" data-service-description>${escapeHtml(serviceDescription(first))}</div>
+            <div class="order-fields-grid">
+              <label class="field"><span class="field-label">Link do perfil ou publicação</span><input class="field-control" name="link" type="url" inputmode="url" placeholder="https://instagram.com/..." required /></label>
+              <label class="field"><span class="field-label">Quantidade</span><input class="field-control" name="quantity" type="number" inputmode="numeric" min="${escapeHtml(first.min)}" max="${escapeHtml(first.max)}" placeholder="${escapeHtml(first.min)}" data-order-quantity required /></label>
+            </div>
+            <div class="cost-preview product-cost-preview">
+              <span class="cost-preview-label">Total estimado</span>
+              <strong data-cost-preview>—</strong>
+              <span>Calculado com o preço atual do produto. O servidor valida o valor final antes de enviar.</span>
+            </div>
+            <div class="notice">${icon("shield")} <span>O pedido só é enviado quando houver saldo suficiente na sua carteira.</span></div>
+            <button class="button button-primary order-submit-button" type="submit">${icon("check")} Revisar e enviar pedido</button>
+          </section>
         </form>` : `
-        <div class="card empty-state"><div class="empty-icon">${icon("box")}</div><h3>Nenhum produto disponível</h3><p>Peça ao administrador para entrar no painel e cadastrar o ID de um serviço da SMMHype.</p></div>`}
+        <div class="card empty-state"><div class="empty-icon">${icon("box")}</div><h3>Nenhum produto disponível</h3><p>Peça ao administrador para cadastrar os serviços da Tw Store.</p></div>`}
     `, true);
     updateOrderPreview();
   }
@@ -466,26 +684,46 @@
   function renderAdmin() {
     const summary = state.adminSummary || {};
     const services = state.services;
+    state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
+    const categories = state.catalogConfig.categories;
+    const categoryOptions = categories.map(function (category) {
+      return `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`;
+    }).join("");
     app.innerHTML = `<div class="app-shell no-nav"><main class="page">
       ${topbar("Administração")}
-      <section class="page-heading"><h1>Painel administrativo</h1><p class="subtitle">Cadastre os serviços e defina quanto o cliente pagará a cada 1.000 unidades.</p></section>
-      <div class="admin-banner">${icon("shield")} <span>Modo administrador • catálogo compartilhado com todos os celulares</span></div>
+      <section class="page-heading"><h1>Painel administrativo</h1><p class="subtitle">Organize o catálogo por categorias, personalize os serviços e defina os preços cobrados.</p></section>
+      <div class="admin-banner">${icon("shield")} <span>${state.catalogServerSupported ? "Modo administrador • categorias e personalizações sincronizadas com todos os celulares" : "Modo administrador • servidor antigo detectado; categorias ficam locais até atualizar o backend"}</span></div>
       <section class="card balance-card">
         <div class="balance-row"><div><div class="balance-label">SALDO SMMHYPE</div><div class="balance-value">${summary.balance != null ? money(summary.balanceBRL != null ? summary.balanceBRL : summary.balance) : "—"}</div></div><span class="live-pill"><i class="live-dot"></i> API</span></div>
       </section>
-      <div class="metrics"><div class="metric"><div class="metric-value">${summary.enabledServices == null ? "—" : summary.enabledServices}</div><div class="metric-label">Produtos ativos</div></div><div class="metric"><div class="metric-value">${summary.orders == null ? "—" : summary.orders}</div><div class="metric-label">Pedidos enviados</div></div></div>
+      <div class="metrics"><div class="metric"><div class="metric-value">${summary.enabledServices == null ? "—" : summary.enabledServices}</div><div class="metric-label">Produtos ativos</div></div><div class="metric"><div class="metric-value">${categories.length}</div><div class="metric-label">Categorias</div></div></div>
+
+      <section class="card mb-14">
+        <div class="section-heading"><h2>Categorias</h2></div>
+        <form class="category-create-row" data-form="add-category">
+          <input class="field-control" name="categoryName" maxlength="50" placeholder="Ex.: Instagram" required />
+          <button class="button button-primary button-small" type="submit">${icon("plus")} Criar</button>
+        </form>
+        ${categories.length ? `<div class="category-list">${categories.map(function (category) {
+          const count = services.filter(function (service) { return serviceCategoryId(service) === category.id; }).length;
+          return `<div class="category-row"><div><strong>${escapeHtml(category.name)}</strong><span>${count} serviço${count === 1 ? "" : "s"}</span></div><button type="button" class="icon-danger-button" data-action="delete-category" data-id="${escapeHtml(category.id)}" aria-label="Apagar categoria">${icon("trash")}</button></div>`;
+        }).join("")}</div>` : `<div class="helper mt-12">Crie categorias para separar os serviços no aplicativo do cliente.</div>`}
+      </section>
 
       <section class="card mb-14">
         <div class="section-heading"><h2>Adicionar produto</h2></div>
         <form class="form-stack" data-form="add-service">
-          <label class="field"><span class="field-label">ID do serviço na SMMHype</span><input class="field-control" name="serviceId" type="number" inputmode="numeric" min="1" placeholder="Ex.: 1234" required /><span class="helper">O backend valida o ID e importa nome, categoria, tarifa, mínimo e máximo automaticamente.</span></label>
+          <label class="field"><span class="field-label">ID do serviço na Tw Store</span><input class="field-control" name="serviceId" type="number" inputmode="numeric" min="1" placeholder="Ex.: 1234" required /><span class="helper">O backend valida o ID e importa tarifa, mínimo e máximo automaticamente.</span></label>
+          <label class="field"><span class="field-label">Nome que aparecerá no aplicativo</span><input class="field-control" name="customName" maxlength="90" placeholder="Opcional — pode editar depois" /></label>
+          <label class="field"><span class="field-label">Descrição</span><textarea class="field-control field-textarea" name="description" maxlength="240" placeholder="Explique o que o serviço entrega"></textarea></label>
+          <label class="field"><span class="field-label">Categoria</span><select class="field-control" name="categoryId"><option value="">Sem categoria</option>${categoryOptions}</select></label>
           <label class="field"><span class="field-label">Preço cobrado por 1.000</span><input class="field-control" name="pricePerThousandBRL" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="Ex.: 15,90" required /><span class="helper">Valor em Real brasileiro que o usuário pagará por cada 1.000 unidades.</span></label>
           <button class="button button-primary" type="submit">${icon("plus")} Validar e adicionar</button>
         </form>
       </section>
 
       <div class="section-heading"><h2>Produtos cadastrados</h2><button type="button" data-action="admin-reload">Atualizar</button></div>
-      ${services.length ? `<div class="service-list">${services.map(serviceCard).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("box")}</div><h3>Catálogo vazio</h3><p>Digite acima o primeiro ID de serviço disponibilizado pela sua conta SMMHype.</p></div>`}
+      ${services.length ? `<div class="service-list">${services.map(serviceCard).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("box")}</div><h3>Catálogo vazio</h3><p>Digite acima o primeiro ID de serviço disponibilizado pela sua conta Tw Store.</p></div>`}
 
       <button type="button" class="button button-danger mt-16" data-action="logout">${icon("logout")} Sair da administração</button>
     </main></div>`;
@@ -496,14 +734,22 @@
     const providerRate = providerRateBRL(service);
     const sellingValue = Number.isFinite(sellingRate) ? Number(sellingRate).toFixed(2) : "";
     const providerText = Number.isFinite(providerRate) ? money(providerRate) : "—";
+    const meta = serviceMeta(service.service);
+    const selectedCategoryId = serviceCategoryId(service);
+    const categoryOptions = state.catalogConfig.categories.map(function (category) {
+      return `<option value="${escapeHtml(category.id)}" ${selectedCategoryId === category.id ? "selected" : ""}>${escapeHtml(category.name)}</option>`;
+    }).join("");
     return `
       <article class="card service-card">
         <div class="service-head"><span class="id-pill">ID ${service.service}</span><button type="button" class="toggle-button ${service.enabled ? "enabled" : ""}" data-action="toggle-service" data-id="${service.service}" data-enabled="${service.enabled ? "true" : "false"}">${service.enabled ? "ATIVO" : "PAUSADO"}</button></div>
-        <div class="service-title mt-12">${escapeHtml(service.name)}</div>
-        <div class="service-meta">${escapeHtml(service.category)} • ${escapeHtml(service.type)}<br>Tarifa do fornecedor: ${providerText} / 1.000 • mínimo ${escapeHtml(service.min)} • máximo ${escapeHtml(service.max)}</div>
-        <form class="service-price-form" data-form="service-price" data-service-id="${service.service}">
-          <label class="field service-price-field"><span class="field-label">Preço cobrado por 1.000</span><div class="money-input-wrap"><span>R$</span><input class="field-control" name="pricePerThousandBRL" type="number" inputmode="decimal" min="0.01" step="0.01" value="${escapeHtml(sellingValue)}" placeholder="0,00" required /></div><span class="helper">Este é o preço usado no cálculo da carteira e mostrado aos usuários.</span></label>
-          <button type="submit" class="button button-primary button-small">${icon("check")} Salvar preço</button>
+        <div class="service-title mt-12">${escapeHtml(serviceDisplayName(service))}</div>
+        <div class="service-meta">${escapeHtml(serviceCategoryName(service))} • ${escapeHtml(service.type)}<br>Tarifa do fornecedor: ${providerText} / 1.000 • mínimo ${escapeHtml(service.min)} • máximo ${escapeHtml(service.max)}</div>
+        <form class="service-edit-form" data-form="service-edit" data-service-id="${service.service}">
+          <label class="field"><span class="field-label">Nome personalizado</span><input class="field-control" name="customName" maxlength="90" value="${escapeHtml(service.customName || service.displayName || meta.name || service.name || "")}" required /></label>
+          <label class="field"><span class="field-label">Descrição</span><textarea class="field-control field-textarea" name="description" maxlength="240" placeholder="Descrição exibida ao cliente">${escapeHtml(service.description || service.customDescription || meta.description || "")}</textarea></label>
+          <label class="field"><span class="field-label">Categoria</span><select class="field-control" name="categoryId"><option value="">Sem categoria</option>${categoryOptions}</select></label>
+          <label class="field service-price-field"><span class="field-label">Preço cobrado por 1.000</span><div class="money-input-wrap"><span>R$</span><input class="field-control" name="pricePerThousandBRL" type="number" inputmode="decimal" min="0.01" step="0.01" value="${escapeHtml(sellingValue)}" placeholder="0,00" required /></div></label>
+          <button type="submit" class="button button-primary button-small">${icon("check")} Salvar alterações</button>
         </form>
         <div class="order-actions"><button type="button" class="button button-secondary button-small" data-action="sync-service" data-id="${service.service}">${icon("refresh")} Sincronizar</button><button type="button" class="button button-danger button-small" data-action="remove-service" data-id="${service.service}">${icon("trash")} Remover</button></div>
       </article>`;
@@ -524,6 +770,7 @@
 
   async function bootstrap() {
     state.apiUrl = DEFAULT_API_URL;
+    cleanupAccidentalTestState();
     if (!state.session) {
       clearSession();
       state.screen = "login";
@@ -576,6 +823,28 @@
     ]);
     state.services = results[0];
     state.adminSummary = results[1];
+    try {
+      const categories = await client().request("/admin/categories");
+      state.catalogServerSupported = true;
+      state.catalogConfig = normalizeCatalogConfig({
+        categories: (Array.isArray(categories) ? categories : []).map(function (item) {
+          return { id: String(item.id), name: String(item.name || "").trim() };
+        }),
+        serviceMeta: {},
+      });
+      state.services.forEach(function (service) {
+        state.catalogConfig.serviceMeta[String(service.service)] = {
+          name: service.customName || service.name || "",
+          description: service.description || "",
+          categoryId: service.categoryId == null ? "" : String(service.categoryId),
+          categoryName: service.categoryName || "",
+        };
+      });
+      saveCatalogConfig();
+    } catch (error) {
+      state.catalogServerSupported = false;
+      state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
+    }
   }
 
   async function navigate(screen) {
@@ -665,7 +934,7 @@
         if (!service) throw new Error("Escolha um produto válido.");
         const quantity = Number(values.quantity);
         const estimated = ((serviceRateBRL(service) * quantity) / 1000).toFixed(2);
-        const confirmed = window.confirm(`Confirmar pedido real?\n\n${service.name}\nQuantidade: ${quantity}\nValor estimado: ${money(estimated)}\n\nO servidor validará e descontará o valor correspondente da sua carteira.`);
+        const confirmed = window.confirm(`Confirmar pedido real?\n\n${serviceDisplayName(service)}\nQuantidade: ${quantity}\nValor estimado: ${money(estimated)}\n\nO servidor validará e descontará o valor correspondente da sua carteira.`);
         if (!confirmed) return;
         const idempotencyKey = window.crypto && crypto.randomUUID
           ? crypto.randomUUID()
@@ -707,31 +976,68 @@
         return;
       }
 
+      if (type === "add-category") {
+        const name = String(values.categoryName || "").trim();
+        if (name.length < 2) throw new Error("Digite um nome válido para a categoria.");
+        state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
+        if (state.catalogConfig.categories.some(function (item) { return item.name.toLowerCase() === name.toLowerCase(); })) {
+          throw new Error("Essa categoria já existe.");
+        }
+        if (state.catalogServerSupported) {
+          await client().request("/admin/categories", { method: "POST", body: { name } });
+          await loadAdminData();
+          render();
+          toast(`Categoria “${name}” criada e sincronizada.`);
+          return;
+        }
+        const id = `cat-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`;
+        state.catalogConfig.categories.push({ id, name });
+        saveCatalogConfig();
+        render();
+        toast(`Categoria “${name}” criada neste aparelho.`);
+        return;
+      }
+
       if (type === "add-service") {
         const pricePerThousandBRL = Number(String(values.pricePerThousandBRL || "").replace(",", "."));
         if (!Number.isFinite(pricePerThousandBRL) || pricePerThousandBRL <= 0) throw new Error("Informe o preço cobrado por 1.000 em R$.");
         const service = await client().request("/admin/services", {
           method: "POST",
-          body: { serviceId: Number(values.serviceId), pricePerThousandBRL: Number(pricePerThousandBRL.toFixed(2)) },
+          body: {
+            serviceId: Number(values.serviceId),
+            pricePerThousandBRL: Number(pricePerThousandBRL.toFixed(2)),
+            customName: String(values.customName || "").trim(),
+            description: String(values.description || "").trim(),
+            categoryId: values.categoryId ? Number(values.categoryId) : null,
+          },
         });
+        const name = String(values.customName || "").trim() || service.name || `Serviço #${service.service}`;
+        const description = String(values.description || "").trim();
+        const categoryId = String(values.categoryId || "");
+        const synced = await persistServicePresentation(service.service, { name, description, categoryId });
         await loadAdminData();
         render();
-        toast(`Serviço #${service.service} adicionado com preço de ${money(pricePerThousandBRL)} por 1.000.`);
+        toast(synced || state.catalogServerSupported ? `Serviço “${name}” adicionado e sincronizado.` : `Serviço “${name}” adicionado. A personalização ficou salva neste aparelho até o backend ser atualizado.`);
         return;
       }
 
-      if (type === "service-price") {
+      if (type === "service-edit") {
         const serviceId = Number(form.dataset.serviceId);
         const pricePerThousandBRL = Number(String(values.pricePerThousandBRL || "").replace(",", "."));
+        const name = String(values.customName || "").trim();
+        const description = String(values.description || "").trim();
+        const categoryId = String(values.categoryId || "");
         if (!Number.isFinite(serviceId) || serviceId <= 0) throw new Error("Serviço inválido.");
+        if (!name) throw new Error("Informe o nome que aparecerá para o cliente.");
         if (!Number.isFinite(pricePerThousandBRL) || pricePerThousandBRL <= 0) throw new Error("Informe um preço válido por 1.000 em R$.");
         await client().request(`/admin/services/${serviceId}`, {
           method: "PATCH",
           body: { pricePerThousandBRL: Number(pricePerThousandBRL.toFixed(2)) },
         });
+        const synced = await persistServicePresentation(serviceId, { name, description, categoryId });
         await loadAdminData();
         render();
-        toast(`Preço atualizado para ${money(pricePerThousandBRL)} por 1.000.`);
+        toast(synced ? "Serviço atualizado e sincronizado." : "Serviço atualizado neste aparelho. O servidor atual não confirmou os campos visuais.");
         return;
       }
 
@@ -757,6 +1063,14 @@
       clearSession();
       state.screen = "login";
       render();
+      return;
+    }
+    if (action === "select-product") {
+      selectProduct(button.dataset.serviceId);
+      return;
+    }
+    if (action === "filter-products") {
+      filterProducts(button.dataset.category);
       return;
     }
     if (action === "reload-data") {
@@ -785,9 +1099,42 @@
       return;
     }
 
+    if (action === "delete-category") {
+      const category = categoryById(id);
+      if (!category) return;
+      const affected = state.services.filter(function (service) { return serviceCategoryId(service) === String(id); });
+      const warning = affected.length
+        ? `A categoria “${category.name}” possui ${affected.length} serviço(s). Eles ficarão sem categoria. Continuar?`
+        : `Apagar a categoria “${category.name}”?`;
+      if (!window.confirm(warning)) return;
+      buttonBusy(button, true);
+      try {
+        if (state.catalogServerSupported) {
+          await client().request(`/admin/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
+          await loadAdminData();
+          render();
+          toast("Categoria apagada e catálogo atualizado.");
+          return;
+        }
+        for (const service of affected) {
+          const current = serviceMeta(service.service);
+          applyLocalServiceMeta(service.service, { ...current, name: current.name || serviceDisplayName(service), description: current.description || serviceDescription(service), categoryId: "", categoryName: "" });
+        }
+        state.catalogConfig.categories = state.catalogConfig.categories.filter(function (item) { return item.id !== String(id); });
+        saveCatalogConfig();
+        render();
+        toast("Categoria apagada neste aparelho.");
+      } catch (error) {
+        toast(error.message, "error");
+      } finally {
+        buttonBusy(button, false);
+      }
+      return;
+    }
+
     if (["refresh-order", "refill-order", "cancel-order"].includes(action)) {
       const suffix = action === "refresh-order" ? "refresh" : action === "refill-order" ? "refill" : "cancel";
-      if (suffix === "cancel" && !window.confirm("Solicitar o cancelamento deste pedido na SMMHype?")) return;
+      if (suffix === "cancel" && !window.confirm("Solicitar o cancelamento deste pedido na Tw Store?")) return;
       if (suffix === "refill" && !window.confirm("Solicitar reposição para este pedido?")) return;
       buttonBusy(button, true);
       try {
@@ -817,9 +1164,11 @@
           toast("Disponibilidade do produto alterada.");
         } else if (action === "sync-service") {
           await client().request(`/admin/services/${serviceId}/sync`, { method: "POST" });
-          toast("Dados sincronizados com a SMMHype.");
+          toast("Dados sincronizados com a Tw Store.");
         } else {
           await client().request(`/admin/services/${serviceId}`, { method: "DELETE" });
+          delete state.catalogConfig.serviceMeta[String(serviceId)];
+          saveCatalogConfig();
           toast("Produto removido do catálogo.");
         }
         await loadAdminData();
@@ -830,6 +1179,37 @@
         buttonBusy(button, false);
       }
     }
+  }
+
+  function selectProduct(serviceId) {
+    const select = document.querySelector("[data-order-service]");
+    if (!select) return;
+    const value = String(serviceId);
+    const valid = Array.from(select.options).some(function (option) { return option.value === value; });
+    if (!valid) return;
+    select.value = value;
+    document.querySelectorAll("[data-product-card]").forEach(function (card) {
+      const selected = String(card.dataset.serviceId) === value;
+      card.classList.toggle("selected", selected);
+      card.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+    updateOrderPreview();
+  }
+
+  function filterProducts(category) {
+    const wanted = String(category || "__all__");
+    const cards = Array.from(document.querySelectorAll("[data-product-card]"));
+    document.querySelectorAll("[data-action=\"filter-products\"]").forEach(function (chip) {
+      chip.classList.toggle("active", String(chip.dataset.category) === wanted);
+    });
+    const visible = [];
+    cards.forEach(function (card) {
+      const show = wanted === "__all__" || String(card.dataset.productCategory) === wanted;
+      card.classList.toggle("product-hidden", !show);
+      if (show) visible.push(card);
+    });
+    const selectedVisible = visible.some(function (card) { return card.classList.contains("selected"); });
+    if (!selectedVisible && visible[0]) selectProduct(visible[0].dataset.serviceId);
   }
 
   function updateWalletPreview() {
@@ -850,6 +1230,8 @@
     const select = document.querySelector("[data-order-service]");
     const quantityInput = document.querySelector("[data-order-quantity]");
     const helper = document.querySelector("[data-service-helper]");
+    const description = document.querySelector("[data-service-description]");
+    const selectedName = document.querySelector("[data-selected-product-name]");
     const preview = document.querySelector("[data-cost-preview]");
     if (!select || !quantityInput || !helper || !preview) return;
     const service = state.services.find(function (item) { return item.service === Number(select.value); });
@@ -857,7 +1239,17 @@
     quantityInput.min = service.min;
     quantityInput.max = service.max;
     quantityInput.placeholder = service.min;
-    helper.textContent = `Mínimo ${service.min} • Máximo ${service.max} • ${service.category}`;
+    helper.textContent = `${serviceCategoryName(service)} • mínimo ${service.min} • máximo ${service.max}`;
+    if (selectedName) selectedName.textContent = serviceDisplayName(service);
+    if (description) {
+      description.textContent = serviceDescription(service);
+      description.style.display = serviceDescription(service) ? "block" : "none";
+    }
+    document.querySelectorAll("[data-product-card]").forEach(function (card) {
+      const selected = Number(card.dataset.serviceId) === Number(service.service);
+      card.classList.toggle("selected", selected);
+      card.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
     const quantity = Number(quantityInput.value);
     preview.textContent = Number.isFinite(quantity) && quantity > 0
       ? money((serviceRateBRL(service) * quantity) / 1000)
