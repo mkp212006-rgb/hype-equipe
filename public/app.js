@@ -302,15 +302,13 @@
   function brand() {
     return `
       <div class="brand">
-        <div class="brand-mark brand-mark-image" aria-hidden="true"></div>
+        <div class="brand-mark brand-mark-image" aria-hidden="true">T</div>
         <div>
           <div class="brand-name">Tw Store</div>
           <div class="brand-subtitle">#Loja Online</div>
         </div>
       </div>
-      <div class="brand-showcase" role="img" aria-label="Tw Store">
-        <img src="./tw-store-art.jpg" alt="Tw Store" />
-      </div>`;
+      `;
   }
 
   function topbar(title) {
@@ -347,7 +345,7 @@
   }
 
   function renderLoading() {
-    app.innerHTML = `<div class="loading-page"><div><div class="brand-mark brand-mark-image"></div><div class="spinner" style="margin:0 auto 13px"></div><div>Conectando ao servidor seguro…</div></div></div>`;
+    app.innerHTML = `<div class="loading-page"><div><div class="brand-mark brand-mark-image">T</div><div class="spinner" style="margin:0 auto 13px"></div><div>Conectando ao servidor seguro…</div></div></div>`;
   }
 
   function renderLogin(adminMode) {
