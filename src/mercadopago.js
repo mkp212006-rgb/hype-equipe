@@ -40,7 +40,7 @@ async function createDepositPreference({ depositId, chargeBRL }) {
     body: JSON.stringify({
       items: [{
         id: depositId,
-        title: 'Crédito na carteira Hype Equipe',
+        title: 'Carteira Tw Store',
         description: 'Recarga de saldo da carteira Hype Equipe',
         quantity: 1,
         currency_id: 'BRL',

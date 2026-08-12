@@ -83,7 +83,7 @@ export class MercadoPagoClient {
       body: {
         items: [{
           id: depositId,
-          title: "Crédito na carteira Hype Equipe",
+          title: "Carteira Tw Store",
           description: `Crédito de R$ ${money(creditAmount).toFixed(2)} + taxa de R$ ${money(feeAmount).toFixed(2)}`,
           currency_id: "BRL",
           quantity: 1,
