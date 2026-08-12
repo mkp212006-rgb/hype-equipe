@@ -1,0 +1,6 @@
+Depois de enviar os arquivos deste pacote, apague do GitHub a pasta antiga:
+
+android/app/src/main/java/com/hypeequipe/
+
+Os arquivos Java novos ficam em:
+android/app/src/main/java/com/twstore/mobile/
