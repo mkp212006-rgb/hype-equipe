@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.HypeEquipe" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.TwStore" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowBackground">@color/hype_background</item>
-        <item name="android:colorAccent">@color/hype_orange</item>
-        <item name="android:statusBarColor">@color/hype_background</item>
-        <item name="android:navigationBarColor">@color/hype_background</item>
+        <item name="android:windowBackground">@color/tw_store_background</item>
+        <item name="android:colorAccent">@color/tw_store_orange</item>
+        <item name="android:statusBarColor">@color/tw_store_background</item>
+        <item name="android:navigationBarColor">@color/tw_store_background</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
