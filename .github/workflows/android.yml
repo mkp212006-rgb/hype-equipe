@@ -1,4 +1,4 @@
-name: Android APK
+name: Tw Store Android APK
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
     env:
-      HYPE_SERVER_URL: https://hype-equipe-production.up.railway.app
+      TW_STORE_SERVER_URL: https://tw-store-application.up.railway.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -30,7 +30,7 @@ jobs:
       - run: gradle -p android assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Hype-Equipe-APK
+          name: Tw-Store-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
