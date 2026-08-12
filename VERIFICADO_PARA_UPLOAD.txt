@@ -1,0 +1,18 @@
+TW STORE — PACOTE VERIFICADO PARA UPLOAD
+
+Repositório conferido: mkp212006-rgb/hype-equipe (branch main)
+Identidade Android nova: com.twstore.mobile
+Nome exibido: Tw Store
+Servidor padrão: https://tw-store-application.up.railway.app
+
+Este ZIP contém os arquivos de código que precisam ser adicionados/substituídos no GitHub.
+Não é necessário editar o conteúdo desses arquivos antes do upload.
+
+IMPORTANTE APÓS O UPLOAD:
+1. Apagar a pasta antiga: android/app/src/main/java/com/hypeequipe/
+2. Criar o app Android no Firebase com package name com.twstore.mobile.
+3. Baixar o google-services.json e adicionar em android/app/google-services.json.
+4. Configurar FIREBASE_SERVICE_ACCOUNT_JSON no Railway (não colocar essa chave no GitHub).
+5. Confirmar que o domínio https://tw-store-application.up.railway.app está associado ao serviço Railway.
+
+O google-services.json e a conta de serviço não podem vir prontos neste ZIP porque são gerados pelo seu próprio projeto Firebase.
