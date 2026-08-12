@@ -673,7 +673,7 @@
       <section class="card wallet-deposit-card">
         <div class="section-heading"><h2>Adicionar saldo</h2></div>
         <form class="form-stack" data-form="wallet-deposit">
-          <label class="field"><span class="field-label">Valor que deseja receber na carteira</span><input class="field-control" name="amount" type="number" inputmode="decimal" min="1" step="0.01" placeholder="Ex.: 20,00" data-wallet-amount required /><span class="helper">É cobrada uma taxa de 5% sobre cada depósito.</span></label>
+          <label class="field"><span class="field-label">Valor que deseja receber na carteira</span><input class="field-control" name="amount" type="number" inputmode="decimal" min="5" step="0.01" placeholder="Ex.: 20,00" data-wallet-amount required /><span class="helper">É cobrada uma taxa de 5% sobre cada depósito.</span></label>
           <div class="wallet-fee-preview">
             <div><span>Crédito na carteira</span><strong data-wallet-credit>R$ 0,00</strong></div>
             <div><span>Taxa de 5%</span><strong data-wallet-fee>R$ 0,00</strong></div>
@@ -992,7 +992,7 @@
       if (type === "wallet-deposit") {
         if (!state.walletSupported) throw new Error("O servidor ainda não habilitou a carteira.");
         const amount = Number(String(values.amount).replace(",", "."));
-        if (!Number.isFinite(amount) || amount < 1) throw new Error("Informe um valor de depósito válido.");
+        if (!Number.isFinite(amount) || amount < 5) throw new Error("Informe um valor de depósito válido.");
         const idempotencyKey = window.crypto && crypto.randomUUID
           ? crypto.randomUUID()
           : `deposit-${Date.now()}-${Math.random().toString(16).slice(2)}`;
