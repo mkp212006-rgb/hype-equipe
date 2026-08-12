@@ -236,7 +236,7 @@ export async function createApp({ config, db, smm, mercadoPago }) {
     if (!mercadoPago.isConfigured()) {
       throw new HttpError(503, "Mercado Pago ainda não foi configurado no servidor.");
     }
-    const creditAmount = moneyValue(req.body?.amount, "Valor do depósito", { minimum: 1, maximum: 100_000 });
+    const creditAmount = moneyValue(req.body?.amount, "Valor do depósito", { minimum: 5, maximum: 100_000 });
     const idempotencyKey = text(req.body?.idempotencyKey, "Chave do depósito", { minimum: 12, maximum: 128 });
     const feeAmount = Number((creditAmount * 0.05).toFixed(2));
     const totalAmount = Number((creditAmount + feeAmount).toFixed(2));
