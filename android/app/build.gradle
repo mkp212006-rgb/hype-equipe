@@ -2,27 +2,33 @@ plugins {
     id "com.android.application"
 }
 
+// O build continua funcionando sem o arquivo, mas o push só é ativado
+// quando android/app/google-services.json estiver presente.
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withInputStream { localProperties.load(it) }
 }
-def defaultServerUrl = "https://hype-equipe-production.up.railway.app"
-def configuredServerUrl = System.getenv("HYPE_SERVER_URL")
-        ?: (localProperties.getProperty("HYPE_SERVER_URL") ?: (project.findProperty("HYPE_SERVER_URL") ?: defaultServerUrl))
+def defaultServerUrl = "https://tw-store-application.up.railway.app"
+def configuredServerUrl = System.getenv("TW_STORE_SERVER_URL")
+        ?: (localProperties.getProperty("TW_STORE_SERVER_URL") ?: (project.findProperty("TW_STORE_SERVER_URL") ?: defaultServerUrl))
 def escapedServerUrl = configuredServerUrl.replace("\\", "\\\\").replace('"', '\\"')
 
 android {
-    namespace "com.hypeequipe.mobile"
+    namespace "com.twstore.mobile"
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.hypeequipe.mobile"
+        applicationId "com.twstore.mobile"
         minSdk 24
         targetSdk 35
-        versionCode 211
-        versionName "2.1.1"
-        buildConfigField "String", "HYPE_SERVER_URL", "\"${escapedServerUrl}\""
+        versionCode 212
+        versionName "2.1.2"
+        buildConfigField "String", "TW_STORE_SERVER_URL", "\"${escapedServerUrl}\""
     }
 
     buildFeatures {
@@ -41,4 +47,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    implementation platform("com.google.firebase:firebase-bom:34.16.0")
+    implementation "com.google.firebase:firebase-messaging"
 }
