@@ -1,16 +1,21 @@
-# Aplicativo Android
+# Tw Store — Aplicativo Android
 
-Este projeto recompõe o WebView do APK recebido e mantém o mesmo `applicationId` (`com.hypeequipe.mobile`).
+Aplicativo Android oficial da Tw Store.
 
-1. Abra esta pasta no Android Studio.
-2. Use JDK 17 e instale o Android SDK 35 quando solicitado.
-3. Defina a URL HTTPS antes de compilar:
+- Nome visível: `Tw Store`
+- applicationId / namespace: `com.twstore.mobile`
+- Servidor de produção atual: `https://tw-store-application.up.railway.app`
 
-   ```properties
-   # arquivo android/local.properties (não enviar ao GitHub)
-   HYPE_SERVER_URL=https://seu-dominio.up.railway.app
-   ```
+## Compilação
 
-4. Gere uma chave de assinatura própria e use **Build > Generate Signed App Bundle or APK**.
+1. Abra a pasta `android` no Android Studio.
+2. Use JDK 17 e Android SDK 35.
+3. Se quiser sobrescrever a URL do servidor, use no arquivo `android/local.properties`:
 
-O APK original não contém a chave privada usada na assinatura. Por isso, uma compilação nova só atualiza o aplicativo já instalado se você possuir o keystore original; sem ele, desinstale a versão anterior ou use outro `applicationId`.
+```properties
+TW_STORE_SERVER_URL=https://seu-dominio.up.railway.app
+```
+
+4. Gere o APK normalmente.
+
+Como o identificador agora é `com.twstore.mobile`, esta versão é tratada pelo Android como o aplicativo Tw Store desde o início. Cadastre exatamente esse package name no Firebase.
