@@ -9,18 +9,42 @@ const runtimeServerPath = path.join(srcDirectory, ".tw-store-server-2.5.runtime.
 const TW_STORE_PUBLIC_URL = "https://tw-store-application.up.railway.app";
 const LEGACY_PUBLIC_URL = "https://hype-equipe-production.up.railway.app";
 
-// Garante que o backend e o Checkout do Mercado Pago usem a URL oficial nova.
-if (!process.env.PUBLIC_BASE_URL) process.env.PUBLIC_BASE_URL = TW_STORE_PUBLIC_URL;
+// Mantém o backend, Checkout do Mercado Pago e webhooks apontando para a URL oficial da Tw Store.
+const configuredPublicBaseUrl = String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
+if (!configuredPublicBaseUrl || configuredPublicBaseUrl === LEGACY_PUBLIC_URL) {
+  process.env.PUBLIC_BASE_URL = TW_STORE_PUBLIC_URL;
+}
 
-// Compatibilidade: corrige em runtime referências antigas no frontend sem alterar a lógica da aplicação.
-const publicAppPath = path.resolve(srcDirectory, "../public/app.js");
-if (fs.existsSync(publicAppPath)) {
-  const publicAppSource = fs.readFileSync(publicAppPath, "utf8");
-  const normalizedPublicAppSource = publicAppSource.split(LEGACY_PUBLIC_URL).join(TW_STORE_PUBLIC_URL);
-  if (normalizedPublicAppSource !== publicAppSource) {
-    fs.writeFileSync(publicAppPath, normalizedPublicAppSource, "utf8");
+// Corrige em runtime qualquer referência antiga existente nos arquivos públicos.
+// Isso evita "Failed to fetch" caso algum JS antigo ainda tenha sido enviado ao GitHub.
+const publicDirectory = path.resolve(srcDirectory, "../public");
+const publicExtensions = new Set([".js", ".html", ".css"]);
+
+function normalizePublicUrls(directory) {
+  if (!fs.existsSync(directory)) return;
+
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      normalizePublicUrls(entryPath);
+      continue;
+    }
+
+    if (!entry.isFile() || !publicExtensions.has(path.extname(entry.name).toLowerCase())) continue;
+
+    const source = fs.readFileSync(entryPath, "utf8");
+    if (!source.includes(LEGACY_PUBLIC_URL)) continue;
+
+    const normalized = source.split(LEGACY_PUBLIC_URL).join(TW_STORE_PUBLIC_URL);
+    fs.writeFileSync(entryPath, normalized, "utf8");
+    console.log("Tw Store: URL antiga corrigida em arquivo público", {
+      file: path.relative(publicDirectory, entryPath),
+    });
   }
 }
+
+normalizePublicUrls(publicDirectory);
 
 function injectOnce(source, anchor, replacement, label) {
   if (source.includes(replacement)) return source;
