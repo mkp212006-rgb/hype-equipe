@@ -45,7 +45,7 @@ export function loadConfig(env = process.env) {
     jardelApiTimeoutMs: integer(env.JARDEL_API_TIMEOUT_MS, 20_000, 2_000, 60_000),
     publicBaseUrl: normalizeUrl(
       env.PUBLIC_BASE_URL,
-      railwayPublicUrl || "https://hype-equipe-production.up.railway.app",
+      railwayPublicUrl || "https://tw-store-application.up.railway.app",
     ),
     allowedOrigins: String(env.ALLOWED_ORIGINS || "")
       .split(",")
