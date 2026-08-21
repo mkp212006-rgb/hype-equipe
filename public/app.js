@@ -3,7 +3,7 @@
 
   const SESSION_KEY = "tw-store.session.v3";
   const CATALOG_KEY = "tw-store.catalog.v1";
-  const DEFAULT_API_URL = "https://hype-equipe-production.up.railway.app";
+  const DEFAULT_API_URL = window.location.origin;
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
 

@@ -2,7 +2,7 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
-  const API_URL = "https://hype-equipe-production.up.railway.app";
+  const API_URL = window.location.origin;
   const app = document.getElementById("app");
   if (!app) return;
 
