@@ -654,7 +654,7 @@
     app.innerHTML = shell(`
       ${topbar("Histórico")}
       <section class="page-heading"><h1>Pedidos</h1><p class="subtitle">Atualize a situação diretamente no provedor e consulte quem enviou cada solicitação.</p></section>
-      ${state.orders.length ? `<div class="order-list">${state.orders.map(function (order) { return orderCard(order, false); }).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("receipt")}</div><h3>Nenhum pedido registrado</h3><p>Os pedidos reais enviados pela equipe aparecerão aqui.</p></div>`}
+      ${Array.isArray(state.orders) && state.orders.length ? `<div class="order-list">${state.orders.slice(0,50).map(function (order) { return orderCard(order, false); }).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("receipt")}</div><h3>Nenhum pedido registrado</h3><p>Os pedidos reais enviados pela equipe aparecerão aqui.</p></div>`}
     `, true);
   }
 
@@ -831,7 +831,7 @@
   async function loadMemberData() {
     const core = await Promise.all([
       client().request("/api/services"),
-      client().request("/api/orders?limit=50"),
+      client().request("/api/orders"),
       client().request("/api/balance"),
     ]);
     state.services = core[0];
@@ -970,7 +970,7 @@
         const idempotencyKey = window.crypto && crypto.randomUUID
           ? crypto.randomUUID()
           : `order-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const order = await client().request("/api/orders?limit=50", {
+        const order = await client().request("/api/orders", {
           method: "POST",
           body: {
             serviceId: Number(values.serviceId),
