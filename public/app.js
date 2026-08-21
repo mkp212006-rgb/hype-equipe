@@ -831,7 +831,7 @@
   async function loadMemberData() {
     const core = await Promise.all([
       client().request("/api/services"),
-      client().request("/api/orders"),
+      client().request("/api/orders?limit=50"),
       client().request("/api/balance"),
     ]);
     state.services = core[0];
@@ -970,7 +970,7 @@
         const idempotencyKey = window.crypto && crypto.randomUUID
           ? crypto.randomUUID()
           : `order-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const order = await client().request("/api/orders", {
+        const order = await client().request("/api/orders?limit=50", {
           method: "POST",
           body: {
             serviceId: Number(values.serviceId),
