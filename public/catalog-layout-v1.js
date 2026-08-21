@@ -2,7 +2,7 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
-  const API_URL = window.location.origin;
+  const API_URL = "https://hype-equipe-production.up.railway.app";
   const app = document.getElementById("app");
   if (!app) return;
 
@@ -105,13 +105,9 @@
   async function api(path) {
     const current = session();
     if (!current || !current.token) throw new Error("Sessão inválida.");
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
     const response = await fetch(API_URL + path, {
-
       headers: { Accept: "application/json", Authorization: "Bearer " + current.token },
-    }, signal: controller.signal });
-    clearTimeout(timeout);
+    });
     const raw = await response.text();
     let data = {};
     try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }

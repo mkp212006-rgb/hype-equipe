@@ -3,7 +3,7 @@
 
   const SESSION_KEY = "tw-store.session.v3";
   const CATALOG_KEY = "tw-store.catalog.v1";
-  const DEFAULT_API_URL = window.location.origin;
+  const DEFAULT_API_URL = "https://hype-equipe-production.up.railway.app";
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
 
@@ -654,7 +654,7 @@
     app.innerHTML = shell(`
       ${topbar("Histórico")}
       <section class="page-heading"><h1>Pedidos</h1><p class="subtitle">Atualize a situação diretamente no provedor e consulte quem enviou cada solicitação.</p></section>
-      ${Array.isArray(state.orders) && state.orders.length ? `<div class="order-list">${state.orders.slice(0,50).map(function (order) { return orderCard(order, false); }).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("receipt")}</div><h3>Nenhum pedido registrado</h3><p>Os pedidos reais enviados pela equipe aparecerão aqui.</p></div>`}
+      ${state.orders.length ? `<div class="order-list">${state.orders.map(function (order) { return orderCard(order, false); }).join("")}</div>` : `<div class="card empty-state"><div class="empty-icon">${icon("receipt")}</div><h3>Nenhum pedido registrado</h3><p>Os pedidos reais enviados pela equipe aparecerão aqui.</p></div>`}
     `, true);
   }
 
