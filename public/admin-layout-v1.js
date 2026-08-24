@@ -12,6 +12,7 @@
   let applying = false;
   let homeRequestId = 0;
   let openTickets = 0;
+  let pendingDeliveries = 0;
 
   function session() {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; }
@@ -39,6 +40,9 @@
     const paths = {
       home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/>',
       catalog: '<path d="m21 8-9-5-9 5 9 5Z"/><path d="m3 8 9 5 9-5v8l-9 5-9-5Z"/><path d="M12 13v8"/>',
+      delivery: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/><path d="m15 3-3 4h3l-2 4"/>',
+      check: '<path d="M20 6 9 17l-5-5"/>',
+      copy: '<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
       reports: '<path d="M5 20V10M12 20V4M19 20v-7"/><path d="M3 20h18"/>',
       support: '<path d="M4 13v-2a8 8 0 0 1 16 0v2"/><path d="M4 13h3v6H5a1 1 0 0 1-1-1ZM20 13h-3v6h2a1 1 0 0 0 1-1Z"/><path d="M17 19c0 1-1.5 2-3 2h-2"/>',
       settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
@@ -51,7 +55,7 @@
   }
 
   function setScreen(value) {
-    const screen = ["home", "catalog", "reports", "support", "settings"].includes(value) ? value : "home";
+    const screen = ["home", "catalog", "deliveries", "reports", "support", "settings"].includes(value) ? value : "home";
     sessionStorage.setItem(ADMIN_SCREEN_KEY, screen);
     return screen;
   }
@@ -60,14 +64,21 @@
     return setScreen(sessionStorage.getItem(ADMIN_SCREEN_KEY) || "home");
   }
 
-  async function api(path) {
+  async function api(path, options) {
     const current = session();
     if (!current || current.role !== "admin" || !current.token) throw new Error("Sessão administrativa inválida.");
+    const config = options || {};
     const controller = new AbortController();
     const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(API_URL + path, {
-        headers: { Accept: "application/json", Authorization: "Bearer " + current.token },
+        method: config.method || "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: "Bearer " + current.token,
+          ...(config.body ? { "Content-Type": "application/json" } : {}),
+        },
+        body: config.body ? JSON.stringify(config.body) : undefined,
         signal: controller.signal,
         cache: "no-store",
         credentials: "same-origin",
@@ -86,12 +97,14 @@
     const items = [
       ["home", "Início", "home"],
       ["catalog", "Catálogo", "catalog"],
+      ["deliveries", "Entregas", "delivery"],
       ["reports", "Relatórios", "reports"],
       ["support", "Suporte", "support"],
       ["settings", "Ajustes", "settings"],
     ];
-    return '<nav class="bottom-nav admin-bottom-nav" data-admin-active="' + escapeHtml(active) + '" aria-label="Navegação administrativa">' + items.map(function (item) {
-      const badge = item[0] === "support" && openTickets > 0 ? '<b class="admin-nav-badge">' + escapeHtml(openTickets > 99 ? "99+" : openTickets) + '</b>' : '';
+    return '<nav class="bottom-nav admin-bottom-nav" data-admin-active="' + escapeHtml(active) + '" data-admin-badges="' + escapeHtml(openTickets + ":" + pendingDeliveries) + '" aria-label="Navegação administrativa">' + items.map(function (item) {
+      const count = item[0] === "support" ? openTickets : item[0] === "deliveries" ? pendingDeliveries : 0;
+      const badge = count > 0 ? '<b class="admin-nav-badge">' + escapeHtml(count > 99 ? "99+" : count) + '</b>' : '';
       return '<button type="button" class="nav-item ' + (active === item[0] ? "active" : "") + '" data-admin-nav="' + item[0] + '"><span class="admin-nav-icon">' + icon(item[2]) + badge + '</span><span>' + item[1] + '</span></button>';
     }).join("") + '</nav>';
   }
@@ -99,7 +112,7 @@
   function appendNav(active) {
     if (!app || !isAdmin()) return;
     const old = app.querySelector(".admin-bottom-nav");
-    if (old && old.dataset.adminActive === active) {
+    if (old && old.dataset.adminActive === active && old.dataset.adminBadges === openTickets + ":" + pendingDeliveries) {
       app.classList.add("admin-nav-visible");
       return;
     }
@@ -135,9 +148,10 @@
         metricCard("bag", "Total de pedidos", "—", "Carregando…") +
         metricCard("catalog", "Catálogo ativo", "—", "Carregando…") +
         metricCard("support", "Tickets abertos", "—", "Carregando…") +
-        metricCard("money", "Utilizado no mês", "—", "Carregando…") +
+        metricCard("delivery", "Entregas pendentes", "—", "Carregando…") +
       '</div>' +
       '<button class="admin-quick-card" type="button" data-admin-nav="catalog"><span class="admin-quick-icon">' + icon("catalog") + '</span><span class="admin-quick-copy"><strong>Gerenciar catálogo</strong><small>Adicione, edite ou organize produtos e serviços.</small></span><span class="admin-quick-action">Acessar ' + icon("arrow") + '</span></button>' +
+      '<button class="admin-quick-card admin-delivery-quick" type="button" data-admin-nav="deliveries"><span class="admin-quick-icon">' + icon("delivery") + '</span><span class="admin-quick-copy"><strong>Entregas de assinaturas</strong><small>Veja os pedidos e envie os dados ao e-mail informado pelo cliente.</small></span><span class="admin-quick-action">Abrir ' + icon("arrow") + '</span></button>' +
       '<section class="admin-recent-section"><div class="section-heading"><h2>Suporte recente</h2><button type="button" data-admin-nav="support">Ver todos</button></div><div class="admin-recent-list" data-admin-recent><div class="card feature-loading">Carregando atividades…</div></div></section>' +
       '</main></div>';
     appendNav("home");
@@ -168,23 +182,24 @@
       api("/admin/summary"),
       api("/admin/services"),
       api("/admin/tickets"),
-      api("/admin/reports/spending"),
+      api("/admin/subscription-orders"),
     ]);
     if (requestId !== homeRequestId || screen() !== "home" || !app) return;
     const summary = results[0].status === "fulfilled" ? results[0].value : {};
     const services = results[1].status === "fulfilled" && Array.isArray(results[1].value) ? results[1].value : [];
     const tickets = results[2].status === "fulfilled" && Array.isArray(results[2].value) ? results[2].value : [];
-    const report = results[3].status === "fulfilled" ? results[3].value : {};
+    const deliveries = results[3].status === "fulfilled" && Array.isArray(results[3].value) ? results[3].value : [];
     openTickets = tickets.filter(function (ticket) { return String(ticket.status || "open").toLowerCase() !== "closed"; }).length;
+    pendingDeliveries = deliveries.filter(function (order) { return order.status === "pending"; }).length;
 
     const metrics = app.querySelector("[data-admin-dashboard-metrics]");
     if (metrics) {
       const enabled = services.filter(function (service) { return service.enabled !== false; }).length;
       metrics.innerHTML =
-        metricCard("bag", "Total de pedidos", summary.orders == null ? "—" : String(summary.orders), "Pedidos registrados") +
+        metricCard("bag", "Total de pedidos", summary.orders == null ? String(deliveries.length) : String(Number(summary.orders) + deliveries.length), "Inclui assinaturas") +
         metricCard("catalog", "Catálogo ativo", String(enabled), services.length + " produto(s) cadastrado(s)") +
         metricCard("support", "Tickets abertos", String(openTickets), openTickets ? "Precisam de atendimento" : "Tudo respondido") +
-        metricCard("money", "Utilizado no mês", money(report && report.month ? report.month.spentBRL : 0), report && report.month ? String(report.month.purchases || 0) + " compra(s)" : "Relatório financeiro");
+        metricCard("delivery", "Entregas pendentes", String(pendingDeliveries), pendingDeliveries ? "Precisam ser enviadas" : "Tudo entregue");
     }
     renderRecentTickets(tickets);
     appendNav("home");
@@ -234,6 +249,71 @@
     appendNav("catalog");
     window.scrollTo(0, 0);
     applying = false;
+  }
+
+  function dateTime(value) {
+    const date = new Date(value || 0);
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("pt-BR");
+  }
+
+  function notify(message, error) {
+    const region = document.getElementById("toast-region");
+    if (!region) return;
+    region.innerHTML = '<div class="toast ' + (error ? "error" : "") + '">' + escapeHtml(message) + "</div>";
+    setTimeout(function () { if (region) region.innerHTML = ""; }, 4200);
+  }
+
+  function deliveryStatus(order) {
+    if (order.status === "fulfilled") return { label: "Enviado", className: "fulfilled" };
+    if (order.status === "refunded") return { label: "Estornado", className: "refunded" };
+    return { label: "Pendente", className: "pending" };
+  }
+
+  function deliveryCard(order) {
+    const status = deliveryStatus(order);
+    const summary = '<div class="admin-delivery-summary"><div><span>Cliente</span><strong>@' + escapeHtml(order.createdBy || "cliente") + '</strong></div><div><span>Valor</span><strong>' + money(order.priceBRL) + '</strong></div><div><span>E-mail</span><strong>' + escapeHtml(order.deliveryEmail) + '</strong></div><div><span>Pedido em</span><strong>' + escapeHtml(dateTime(order.createdAt)) + "</strong></div></div>";
+    let action = "";
+    if (order.status === "pending") {
+      action = '<form class="admin-delivery-form" data-admin-delivery-form data-order-id="' + escapeHtml(order.id) + '" data-delivery-email="' + escapeHtml(order.deliveryEmail) + '" data-product-name="' + escapeHtml(order.productName) + '"><label><span>Dados que serão enviados ao cliente</span><textarea name="deliveryData" maxlength="4000" placeholder="Ex.: Login, senha, link de acesso e instruções" required></textarea></label><label><span>Observação interna (opcional)</span><input name="adminNote" maxlength="1000" placeholder="Informação visível somente no painel"></label><div class="admin-delivery-actions"><button type="button" class="button button-secondary" data-admin-open-email>' + icon("delivery") + '<span>1. Abrir e-mail</span></button><button type="submit" class="button button-primary">' + icon("check") + '<span>2. Confirmar envio</span></button></div><button type="button" class="admin-delivery-refund" data-admin-refund-order="' + escapeHtml(order.id) + '">Cancelar pedido e estornar ' + money(order.priceBRL) + "</button></form>";
+    } else if (order.status === "fulfilled") {
+      action = '<div class="admin-delivery-sent"><span>Dados registrados como enviados em ' + escapeHtml(dateTime(order.fulfilledAt || order.updatedAt)) + '</span><pre>' + escapeHtml(order.deliveryData || "") + '</pre><button type="button" class="button button-secondary" data-admin-resend-email data-delivery-email="' + escapeHtml(order.deliveryEmail) + '" data-product-name="' + escapeHtml(order.productName) + '">' + icon("delivery") + " Abrir e-mail novamente</button></div>";
+    } else {
+      action = '<div class="admin-delivery-refunded">O valor foi devolvido à carteira do cliente.' + (order.adminNote ? '<small>' + escapeHtml(order.adminNote) + "</small>" : "") + "</div>";
+    }
+    return '<article class="admin-delivery-card ' + status.className + '"><div class="admin-delivery-head"><div><small>PEDIDO #' + escapeHtml(String(order.id || "").slice(0, 8).toUpperCase()) + '</small><h2>' + escapeHtml(order.productName) + '</h2></div><span class="' + status.className + '">' + status.label + "</span></div>" + summary + action + "</article>";
+  }
+
+  async function loadDeliveries() {
+    const host = app && app.querySelector("[data-admin-deliveries-list]");
+    if (!host) return;
+    try {
+      const orders = await api("/admin/subscription-orders");
+      pendingDeliveries = Array.isArray(orders) ? orders.filter(function (order) { return order.status === "pending"; }).length : 0;
+      host.innerHTML = Array.isArray(orders) && orders.length
+        ? orders.map(deliveryCard).join("")
+        : '<div class="card empty-state"><div class="empty-icon">' + icon("delivery") + '</div><h3>Nenhum pedido de assinatura</h3><p>As compras feitas pelos clientes aparecerão nesta aba.</p></div>';
+      const count = app.querySelector("[data-admin-delivery-count]");
+      if (count) count.textContent = pendingDeliveries + " pendente" + (pendingDeliveries === 1 ? "" : "s");
+      appendNav("deliveries");
+    } catch (error) {
+      host.innerHTML = '<div class="card empty-state"><h3>Não foi possível carregar</h3><p>' + escapeHtml(error.message) + "</p></div>";
+    }
+  }
+
+  function renderDeliveries() {
+    setScreen("deliveries");
+    applying = true;
+    app.innerHTML = '<div class="app-shell admin-app-shell"><main class="page subscription-deliveries-page">' + adminTopbar() + '<section class="admin-dashboard-hero admin-delivery-hero"><span>ASSINATURAS</span><h1>Entregas</h1><p>Abra o e-mail informado pelo cliente, envie os dados da assinatura e confirme a entrega.</p><b data-admin-delivery-count>Carregando…</b></section><div class="admin-delivery-guide"><span><b>1</b> Cliente compra e informa o e-mail</span><span><b>2</b> Você envia os dados</span><span><b>3</b> Confirma a entrega</span></div><div class="admin-deliveries-list" data-admin-deliveries-list><div class="card feature-loading">Carregando pedidos de assinatura…</div></div></main></div>';
+    appendNav("deliveries");
+    window.scrollTo(0, 0);
+    applying = false;
+    loadDeliveries();
+  }
+
+  function emailLink(email, product, data) {
+    const subject = "Sua assinatura " + product + " — Tw Store";
+    const body = "Olá!\n\nSeu pedido de " + product + " foi preparado pela Tw Store.\n\nDados da assinatura:\n" + data + "\n\nGuarde estas informações em segurança.\n\nTw Store";
+    return "mailto:" + String(email || "") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   }
 
   function syntheticClick(attribute) {
@@ -299,6 +379,7 @@
 
   function identifySpecialScreen() {
     if (!app || !isAdmin()) return null;
+    if (app.querySelector(".subscription-deliveries-page")) return "deliveries";
     if (app.querySelector(".report-page")) return "reports";
     const h1s = Array.from(app.querySelectorAll("h1")).map(function (node) { return (node.textContent || "").trim().toLowerCase(); });
     if (h1s.some(function (text) { return text === "ajustes"; })) return "settings";
@@ -310,7 +391,7 @@
     if (!isAdmin() || applying || !app) return;
     const special = identifySpecialScreen();
     if (special) {
-      if (screen() !== special && ["reports", "support", "settings"].includes(special)) setScreen(special);
+      if (screen() !== special && ["deliveries", "reports", "support", "settings"].includes(special)) setScreen(special);
       if (special === "settings") enhanceAdminSettings();
       appendNav(special);
       return;
@@ -322,13 +403,39 @@
     captureCatalog();
     const desired = screen();
     if (desired === "catalog") return renderCatalog();
+    if (desired === "deliveries") return renderDeliveries();
     if (desired === "reports") return openReports();
     if (desired === "support") return openSupport();
     if (desired === "settings") return openSettings();
     renderHome();
   }
 
-  document.addEventListener("click", function (event) {
+  document.addEventListener("submit", async function (event) {
+    const form = event.target.closest("[data-admin-delivery-form]");
+    if (!form || !isAdmin()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (form.dataset.emailOpened !== "true" && !window.confirm("Você já enviou os dados para o e-mail do cliente?")) return;
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      await api("/admin/subscription-orders/" + encodeURIComponent(form.dataset.orderId) + "/fulfill", {
+        method: "PATCH",
+        body: {
+          deliveryData: form.elements.deliveryData.value,
+          adminNote: form.elements.adminNote.value || "",
+        },
+      });
+      notify("Entrega confirmada no pedido do cliente.");
+      await loadDeliveries();
+    } catch (error) {
+      notify(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) button.disabled = false;
+    }
+  }, true);
+
+  document.addEventListener("click", async function (event) {
     const nav = event.target.closest("[data-admin-nav]");
     if (nav && isAdmin()) {
       event.preventDefault();
@@ -336,9 +443,53 @@
       const target = nav.dataset.adminNav;
       if (target === "home") return renderHome();
       if (target === "catalog") return renderCatalog();
+      if (target === "deliveries") return renderDeliveries();
       if (target === "reports") return openReports();
       if (target === "support") return openSupport();
       if (target === "settings") return openSettings();
+    }
+
+    const openEmail = event.target.closest("[data-admin-open-email]");
+    if (openEmail && isAdmin()) {
+      event.preventDefault();
+      const form = openEmail.closest("[data-admin-delivery-form]");
+      const data = String(form?.elements.deliveryData.value || "").trim();
+      if (!data) {
+        notify("Preencha os dados da assinatura antes de abrir o e-mail.", true);
+        form?.elements.deliveryData.focus();
+        return;
+      }
+      form.dataset.emailOpened = "true";
+      window.location.href = emailLink(form.dataset.deliveryEmail, form.dataset.productName, data);
+      return;
+    }
+
+    const resend = event.target.closest("[data-admin-resend-email]");
+    if (resend && isAdmin()) {
+      event.preventDefault();
+      const data = resend.closest(".admin-delivery-card")?.querySelector("pre")?.textContent || "";
+      window.location.href = emailLink(resend.dataset.deliveryEmail, resend.dataset.productName, data);
+      return;
+    }
+
+    const refund = event.target.closest("[data-admin-refund-order]");
+    if (refund && isAdmin()) {
+      event.preventDefault();
+      if (!window.confirm("Cancelar este pedido e devolver o valor para a carteira do cliente?")) return;
+      refund.disabled = true;
+      try {
+        await api("/admin/subscription-orders/" + encodeURIComponent(refund.dataset.adminRefundOrder) + "/refund", {
+          method: "PATCH",
+          body: { adminNote: "Pedido cancelado e estornado pelo administrador." },
+        });
+        notify("Pedido cancelado e valor estornado.");
+        await loadDeliveries();
+      } catch (error) {
+        notify(error.message, true);
+      } finally {
+        if (document.body.contains(refund)) refund.disabled = false;
+      }
+      return;
     }
 
     const refresh = event.target.closest("[data-admin-refresh]");

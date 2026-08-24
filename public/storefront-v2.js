@@ -91,40 +91,33 @@
       arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
       cart: '<circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6"/>',
       check: '<path d="M20 6 9 17l-5-5"/>',
+      close: '<path d="m6 6 12 12M18 6 6 18"/>',
+      discord: '<path d="M8 8.5a9 9 0 0 1 8 0l1.5 7a10 10 0 0 1-3 1.5l-.7-1.1a7 7 0 0 0 1.2-.6M9 15.3a7 7 0 0 0 6 0M6.5 15.5l1.5-7M9.5 12.5h.01M14.5 12.5h.01"/>',
       headset: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19c0 1.1-.9 2-2 2h-3"/><rect x="3" y="13" width="4" height="6" rx="2"/><rect x="17" y="13" width="4" height="6" rx="2"/>',
+      history: '<circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2M4 5v4h4"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/>',
       shield: '<path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6Z"/><path d="m9 12 2 2 4-5"/>',
+      star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
+      user: '<circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
       wallet: '<path d="M4 6h14a2 2 0 0 1 2 2v10H4a2 2 0 0 1-2-2V6a3 3 0 0 1 3-3h12"/><path d="M16 11h4v4h-4a2 2 0 1 1 0-4Z"/>',
       zap: '<path d="m13 2-9 12h7l-1 8 9-12h-7Z"/>',
     };
     return '<svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true">' + (paths[name] || paths.check) + "</svg>";
   }
 
-  function productButton(product) {
-    if (product.kind === "smm") {
-      return '<button type="button" class="store-product-button" data-store-smm="' + escapeHtml(product.sourceId) + '" data-store-category="' + escapeHtml(product.categoryName) + '">' + storeIcon("cart") + '<span>Comprar agora</span>' + storeIcon("arrow") + "</button>";
-    }
-    if (product.kind === "vpn") {
-      return '<button type="button" class="store-product-button" data-vpn-action="buy" data-product-id="' + escapeHtml(product.sourceId) + '">' + storeIcon("cart") + '<span>Comprar acesso</span>' + storeIcon("arrow") + "</button>";
-    }
-    return '<button type="button" class="store-product-button" data-store-subscription="' + escapeHtml(product.sourceId) + '" data-store-url="' + escapeHtml(product.actionUrl || "") + '">' + storeIcon("cart") + '<span>' + escapeHtml(product.actionLabel || "Ver oferta") + "</span>" + storeIcon("arrow") + "</button>";
+  function productSearchText(product) {
+    return [product.name, product.categoryName, product.description, product.badge, product.kind].join(" ").toLowerCase();
   }
 
-  function productCard(product, extraClass) {
-    const priceLabel = product.priceLabel ? '<small>' + escapeHtml(product.priceLabel) + "</small>" : "";
-    const searchable = [product.name, product.categoryName, product.description, product.badge].join(" ").toLowerCase();
-    return '<article class="store-product-card' + escapeHtml(extraClass || "") + '" data-store-search-text="' + escapeHtml(searchable) + '" data-store-product-kind="' + escapeHtml(product.kind) + '">' +
-      '<div class="store-product-media">' + productImage(product, "store-product-image") +
-        (product.badge ? '<span class="store-product-badge">' + escapeHtml(product.badge) + "</span>" : "") +
-        '<span class="store-delivery-badge">' + storeIcon("zap") + " ENTREGA ONLINE</span>" +
-        (product.featured ? '<span class="store-featured-badge">EM DESTAQUE</span>' : "") +
-      "</div>" +
-      '<div class="store-product-copy"><span class="store-product-category">' + escapeHtml(product.categoryName || "Outros") + "</span>" +
-        '<h3>' + escapeHtml(product.name) + "</h3>" +
-        '<div class="store-product-price"><strong>' + money(product.priceBRL) + "</strong>" + priceLabel + "</div>" +
-        '<span class="store-payment-note">Pagamento seguro</span>' +
-        productButton(product) +
-      "</div></article>";
+  function productActionAttributes(product) {
+    const meta = ' data-store-product-name="' + escapeHtml(product.name) + '" data-store-product-price="' + escapeHtml(product.priceBRL) + '"';
+    if (product.kind === "smm") {
+      return 'data-store-smm="' + escapeHtml(product.sourceId) + '" data-store-category="' + escapeHtml(product.categoryId == null ? "" : product.categoryId) + '"' + meta;
+    }
+    if (product.kind === "vpn") {
+      return 'data-vpn-action="buy" data-product-id="' + escapeHtml(product.sourceId) + '"' + meta;
+    }
+    return 'data-store-subscription="' + escapeHtml(product.sourceId) + '"' + meta;
   }
 
   function normalizedCatalog(payload) {
@@ -143,25 +136,54 @@
     return products.filter(function (product) { return Number(product.categoryId) === Number(category.id); });
   }
 
-  function heroProduct(product) {
+  function sectionHeading(title) {
+    return '<div class="store-video-section-heading"><i></i><h2>' + escapeHtml(title) + "</h2><i></i></div>";
+  }
+
+  function mosaicTile(product, index) {
     if (!product) {
-      return '<div class="store-hero-empty"><span class="store-hero-empty-orbit"></span><b>TW</b><strong>TW STORE</strong><small>Sua vitrine digital</small></div>';
+      return '<div class="store-mosaic-card store-mosaic-placeholder"><span>TW</span><small>TW STORE</small></div>';
     }
-    return '<div class="store-hero-product">' +
-      '<span class="store-hero-product-label">OFERTA EM DESTAQUE</span>' +
-      '<div class="store-hero-product-media">' + productImage(product, "store-hero-image") + "</div>" +
-      '<div class="store-hero-product-copy"><div><small>' + escapeHtml(product.categoryName || "Destaque") + '</small><h2>' + escapeHtml(product.name) + '</h2></div><strong>' + money(product.priceBRL) + "</strong></div>" +
-      productButton(product) +
-    "</div>";
+    return '<button type="button" class="store-mosaic-card" ' + productActionAttributes(product) + ' aria-label="Abrir ' + escapeHtml(product.name) + '">' +
+      productImage(product, "store-mosaic-image") + '<span class="store-mosaic-index">' + escapeHtml(index + 1) + "</span></button>";
   }
 
   function featuredCard(product) {
-    const searchable = [product.name, product.categoryName, product.description, product.badge].join(" ").toLowerCase();
-    return '<article class="store-feature-card" data-store-search-text="' + escapeHtml(searchable) + '">' +
+    return '<button type="button" class="store-feature-card" data-store-search-text="' + escapeHtml(productSearchText(product)) + '" ' + productActionAttributes(product) + ' aria-label="Comprar ' + escapeHtml(product.name) + '">' +
       productImage(product, "store-feature-image") +
-      '<span class="store-feature-shade"></span><span class="store-feature-label">EM DESTAQUE</span>' +
-      '<div class="store-feature-copy"><small>' + escapeHtml(product.categoryName || "Destaque") + '</small><h3>' + escapeHtml(product.name) + '</h3><strong>' + money(product.priceBRL) + "</strong>" + productButton(product) + "</div>" +
-    "</article>";
+      '<span class="store-feature-label">' + storeIcon("star") + " Em Destaque</span>" +
+    "</button>";
+  }
+
+  function catalogCard(product, extra) {
+    const priceSuffix = product.kind === "subscription" ? "+" : "";
+    const note = product.kind === "smm" ? "por 1.000" : product.priceLabel || "À vista no Pix";
+    return '<button type="button" class="store-video-product-card' + (extra ? " store-product-extra" : "") + '" data-store-search-text="' + escapeHtml(productSearchText(product)) + '" ' + productActionAttributes(product) + ' aria-label="Comprar ' + escapeHtml(product.name) + '">' +
+      '<span class="store-video-product-media">' + productImage(product, "store-video-product-image") + '<span class="store-video-zap">' + storeIcon("zap") + "</span></span>" +
+      '<span class="store-video-product-copy"><span class="store-video-product-name"><b>♥</b> ' + escapeHtml(product.name) + '</span><strong>' + money(product.priceBRL) + escapeHtml(priceSuffix) + '</strong><small>' + escapeHtml(note) + '</small><i>' + storeIcon("zap") + "</i></span></button>";
+  }
+
+  function catalogSection(title, products, id) {
+    if (!products.length) return "";
+    const extraCount = Math.max(0, products.length - 2);
+    const pages = Math.min(5, Math.max(1, Math.ceil(products.length / 2)));
+    return '<section class="store-category-section" id="store-category-' + escapeHtml(id) + '">' + sectionHeading(title) +
+      '<div class="store-video-product-grid">' + products.map(function (product, index) { return catalogCard(product, index > 1); }).join("") + "</div>" +
+      (products.length > 2 ? '<div class="store-video-dots" aria-hidden="true">' + Array.from({ length: pages }, function (_item, index) { return '<i class="' + (index === 0 ? "active" : "") + '"></i>'; }).join("") + "</div>" : "") +
+      (extraCount ? '<div class="store-video-more-row"><i></i><button type="button" data-store-category-expand data-store-more-count="' + extraCount + '"><span>Ver mais</span><b>' + extraCount + "+</b></button><i></i></div>" : "") +
+    "</section>";
+  }
+
+  function searchModal(products) {
+    return '<div class="store-dialog-backdrop" data-store-search-modal hidden><section class="store-dialog store-search-dialog" role="dialog" aria-modal="true" aria-label="Buscar produtos"><div class="store-dialog-heading"><div><small>TW STORE</small><h2>Buscar produtos</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><label class="store-dialog-search">' + storeIcon("search") + '<input type="search" data-store-search placeholder="Digite o nome do produto" autocomplete="off" maxlength="100"></label><div class="store-search-results" data-store-search-results>' + products.map(function (product) { return catalogCard(product, false); }).join("") + '</div><div class="store-search-empty" data-store-search-empty hidden><h3>Nenhum produto encontrado</h3><p>Tente outro nome ou categoria.</p></div></section></div>';
+  }
+
+  function purchaseModal() {
+    return '<div class="store-dialog-backdrop" data-store-purchase-modal hidden><section class="store-dialog store-purchase-dialog" role="dialog" aria-modal="true" aria-label="Finalizar assinatura"><div class="store-dialog-heading"><div><small>FINALIZAR COMPRA</small><h2 data-store-purchase-name>Assinatura</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div class="store-purchase-summary"><span>Valor da assinatura</span><strong data-store-purchase-price>—</strong></div><form data-store-subscription-order><input type="hidden" name="productId"><label><span>E-mail que receberá a assinatura</span><input type="email" name="deliveryEmail" inputmode="email" autocomplete="email" maxlength="254" placeholder="seuemail@exemplo.com" required><small>Confira com atenção. Os dados serão preparados pelo administrador e enviados para este e-mail.</small></label><button type="submit" class="store-purchase-submit">' + storeIcon("wallet") + '<span>Finalizar com a carteira</span></button></form></section></div>';
+  }
+
+  function ordersModal() {
+    return '<div class="store-dialog-backdrop" data-store-orders-modal hidden><section class="store-dialog store-orders-dialog" role="dialog" aria-modal="true" aria-label="Pedidos de assinatura"><div class="store-dialog-heading"><div><small>MINHA CONTA</small><h2>Assinaturas</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div data-store-orders-list><div class="store-dialog-loading"><span class="spinner"></span> Carregando pedidos…</div></div></section></div>';
   }
 
   function renderMemberStorefront(main, payload) {
@@ -171,40 +193,30 @@
     const balance = main.querySelector(".balance-value")?.textContent || "Minha carteira";
     const featured = catalog.products.filter(function (product) { return product.featured; }).slice(0, 3);
     const spotlight = featured.length ? featured : catalog.products.slice(0, 3);
-    const hero = spotlight[0] || catalog.products[0];
-    const initial = String(current.member || current.username || "T").trim().charAt(0).toUpperCase() || "T";
-    const sections = catalog.categories.map(function (category) {
-      const products = productsForCategory(catalog.products, category);
-      if (!products.length) return "";
-      const hasVpn = products.some(function (product) { return product.kind === "vpn"; });
-      return '<section class="store-category-section" id="store-category-' + escapeHtml(category.id) + '" ' + (hasVpn ? 'data-vpn-member-products="true"' : "") + '>' +
-        '<div class="store-section-heading"><div><h2>' + escapeHtml(category.name) + '</h2><p>' + escapeHtml(category.description || "Escolha a melhor opção para você.") + '</p></div>' + (products.length > 4 ? '<button type="button" data-store-category-expand>Ver mais ' + (products.length - 4) + "+</button>" : '<span class="store-section-count">' + products.length + " produto(s)</span>") + "</div>" +
-        '<div class="store-product-grid">' + products.map(function (product, index) { return productCard(product, index > 3 ? " store-product-extra" : ""); }).join("") + "</div>" +
-      "</section>";
+    const subscriptions = catalog.products.filter(function (product) { return product.kind === "subscription"; });
+    const categorySections = catalog.categories.map(function (category) {
+      const products = productsForCategory(catalog.products, category).filter(function (product) { return product.kind !== "subscription"; });
+      return catalogSection(category.name, products, category.id);
     }).join("");
+    const mosaic = catalog.products.filter(function (product) { return product.imageUrl; }).slice(0, 9);
+    const fallbackProducts = catalog.products.length ? catalog.products : [null];
+    while (mosaic.length < 9) mosaic.push(fallbackProducts[mosaic.length % fallbackProducts.length]);
 
     main.classList.add("storefront-page");
     main.dataset.storefrontEnhanced = "true";
-    const categoryNav = catalog.categories.length
-      ? '<nav class="store-category-nav" aria-label="Categorias">' + catalog.categories.map(function (category) {
-        const count = productsForCategory(catalog.products, category).length;
-        return count ? '<button type="button" data-store-scroll="store-category-' + escapeHtml(category.id) + '">' + escapeHtml(category.name) + '<small>' + count + "</small></button>" : "";
-      }).join("") + "</nav>"
-      : "";
+    main.closest(".app-shell")?.classList.add("storefront-shell");
+    document.body.classList.add("storefront-active");
     const featuredSection = spotlight.length
-      ? '<section class="store-featured" id="store-catalog-start"><div class="store-section-heading"><div><h2>Produtos em Destaque</h2><p>As ofertas selecionadas para você.</p></div><span class="store-section-count">' + spotlight.length + ' destaque(s)</span></div><div class="store-feature-grid">' + spotlight.map(featuredCard).join("") + "</div></section>"
+      ? '<section class="store-featured" id="store-catalog-start">' + sectionHeading("Produtos em Destaque") + '<div class="store-feature-grid">' + spotlight.map(featuredCard).join("") + "</div></section>"
       : '<section class="store-empty" id="store-catalog-start"><h2>A vitrine está sendo preparada</h2><p>O administrador ainda não publicou produtos com foto e preço.</p></section>';
 
     main.innerHTML =
-      '<a class="store-promo" href="#store-catalog-start" data-store-scroll="store-catalog-start"><span class="store-promo-shine"></span>' + storeIcon("zap") + " CLIQUE AQUI E GARANTA OFERTAS EXCLUSIVAS! ❤️</a>" +
-      '<header class="store-reference-header"><div class="store-header-inner"><button type="button" class="store-brand" data-store-scroll="store-catalog-start"><span class="store-brand-mark">TW</span><span><b>Tw Store</b><small>Loja verificada ' + storeIcon("check") + '</small></span></button><label class="store-search">' + storeIcon("search") + '<input type="search" data-store-search placeholder="Buscar produto" autocomplete="off" maxlength="100" /></label><div class="store-header-actions"><button type="button" class="store-support-button" data-nav="settings">' + storeIcon("headset") + '<span>Suporte</span></button><button type="button" class="store-wallet-button" data-nav="wallet">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + '</span></button><span class="store-avatar" title="' + escapeHtml(current.member || current.username || "Minha conta") + '">' + escapeHtml(initial) + "</span></div></div></header>" +
-      categoryNav +
-      '<section class="store-hero"><div class="store-hero-copy"><div class="store-review-badge"><span>' + storeIcon("check") + '</span><b>LOJA VERIFICADA</b><i></i><small>COMPRA PROTEGIDA</small></div><h1><span>Bem Vindo(a)</span><strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-scroll="store-catalog-start">' + storeIcon("cart") + ' Ver produtos</button><button type="button" class="store-secondary-action" data-nav="settings">' + storeIcon("headset") + " Suporte</button></div></div>" + heroProduct(hero) + "</section>" +
-      featuredSection + sections +
-      '<section class="store-how"><div class="store-how-intro"><span>EXPERIÊNCIA COMPLETA</span><h2>Tudo que você precisa,<br><strong>em um só lugar</strong></h2><p>Explore nossa plataforma e encontre serviços, assinaturas e acessos com uma jornada simples do começo ao fim.</p></div><div class="store-steps"><article><b>01</b><span>' + storeIcon("search") + '</span><h3>Selecione o produto</h3><p>Navegue e escolha a opção ideal para você.</p></article><article><b>02</b><span>' + storeIcon("shield") + '</span><h3>Pagamento seguro</h3><p>Confira o valor e finalize com segurança.</p></article><article><b>03</b><span>' + storeIcon("zap") + '</span><h3>Processamento rápido</h3><p>Seu pedido é processado sem etapas desnecessárias.</p></article><article><b>04</b><span>' + storeIcon("check") + '</span><h3>Aproveite</h3><p>Acompanhe tudo pela sua conta e fale com o suporte.</p></article></div></section>' +
-      '<section class="store-service-proof"><div class="store-section-heading"><div><h2>Uma experiência feita para você</h2><p>Do pedido ao acompanhamento, tudo permanece dentro da Tw Store.</p></div></div><div class="store-proof-grid"><article>' + storeIcon("shield") + '<div><h3>Ambiente protegido</h3><p>Sessão e carteira com acesso autenticado.</p></div></article><article>' + storeIcon("zap") + '<div><h3>Processo ágil</h3><p>Catálogo direto e acompanhamento dos pedidos.</p></div></article><article>' + storeIcon("headset") + '<div><h3>Suporte humano</h3><p>Ajuda disponível dentro da plataforma.</p></div></article></div></section>' +
-      '<footer class="store-footer"><div class="store-footer-grid"><div class="store-footer-brand"><span class="store-brand-mark">TW</span><div><h2>Tw Store</h2><p>Qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p></div></div><div><h3>Informações</h3><button type="button" data-nav="orders">Meus pedidos</button><button type="button" data-nav="wallet">Minha carteira</button></div><div><h3>Atendimento</h3><button type="button" data-nav="settings">Suporte</button><button type="button" data-nav="settings">Minha conta</button></div><div><h3>Selos de confiança</h3><span>' + storeIcon("shield") + ' Acesso seguro</span><span>' + storeIcon("check") + ' Loja verificada</span></div></div><div class="store-footer-bottom"><span>Copyright © 2026 — Tw Store.</span><small>Layout em vermelho • Hype Equipe</small></div></footer>' +
-      '<div class="store-trust-footer"><div>' + storeIcon("shield") + '<span><b>100% Seguro</b><small>Conta protegida</small></span></div><div>' + storeIcon("zap") + '<span><b>Processamento rápido</b><small>Pedidos online</small></span></div><div>' + storeIcon("headset") + '<span><b>Suporte</b><small>Atendimento humano</small></span></div></div><div class="store-search-empty" data-store-search-empty hidden><h2>Nenhum produto encontrado</h2><p>Tente buscar por outro nome ou categoria.</p></div>';
+      '<a class="store-promo" href="#store-catalog-start" data-store-scroll="store-catalog-start">CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS! ❤️</a>' +
+      '<header class="store-reference-header"><div class="store-header-inner"><button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-nav="settings" aria-label="Suporte">' + storeIcon("headset") + '</button><button type="button" class="store-icon-button" data-nav="settings" aria-label="Minha conta">' + storeIcon("user") + '</button><button type="button" class="store-icon-button store-cart-button" data-store-open-orders aria-label="Minhas assinaturas">' + storeIcon("cart") + "</button></div></div></header>" +
+      '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-nav="settings">' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-nav="settings">' + storeIcon("headset") + ' Suporte</button></div></div><div class="store-mosaic">' + mosaic.map(mosaicTile).join("") + "</div></section>" +
+      featuredSection + catalogSection("Assinaturas", subscriptions, "subscriptions") + categorySections +
+      '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-nav="wallet">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
+      searchModal(catalog.products) + purchaseModal() + ordersModal();
   }
 
   async function enhanceMemberHome(main) {
@@ -254,7 +266,7 @@
         '<label>Nome<input name="name" maxlength="90" value="' + escapeHtml(product.name) + '" required /></label><label>Descrição<textarea name="description" maxlength="500">' + escapeHtml(product.description || "") + "</textarea></label>" +
         '<label>Categoria<select name="categoryId">' + categoryOptions(categories, product.categoryId) + "</select></label>" +
         '<div class="store-admin-form-grid"><label>Preço (R$)<input name="priceBRL" type="number" min="0.01" step="0.01" value="' + escapeHtml(Number(product.priceBRL).toFixed(2)) + '" required /></label><label>Periodicidade<input name="billingLabel" maxlength="40" value="' + escapeHtml(product.billingLabel || "") + '" placeholder="Ex.: por mês" /></label><label>Selo<input name="badge" maxlength="40" value="' + escapeHtml(product.badge || "") + '" /></label><label>Ordem<input name="sortOrder" type="number" min="0" value="' + escapeHtml(product.sortOrder || 0) + '" /></label></div>' +
-        '<div class="store-admin-form-grid"><label>Texto do botão<input name="actionLabel" maxlength="40" value="' + escapeHtml(product.actionLabel || "Ver oferta") + '" required /></label><label>Link de compra<input name="actionUrl" type="url" maxlength="1000" value="' + escapeHtml(product.actionUrl || "") + '" placeholder="https://..." /></label></div>' +
+        '<p class="store-admin-delivery-note">A compra será debitada da carteira e enviada para a aba <b>Entregas</b> com o e-mail informado pelo cliente.</p>' +
         '<div class="store-admin-checks"><label class="store-check"><input name="enabled" type="checkbox" ' + (product.enabled ? "checked" : "") + '/><span>Produto ativo</span></label><label class="store-check"><input name="featured" type="checkbox" ' + (product.featured ? "checked" : "") + '/><span>Produto em destaque</span></label></div>' +
         '<div class="store-admin-actions"><button class="store-save-button" type="submit">Salvar assinatura</button><button type="button" class="store-delete-button" data-store-delete-subscription="' + escapeHtml(product.sourceId) + '">Excluir</button></div>' +
       "</form></details>";
@@ -271,7 +283,7 @@
         imageAdminField({ name: "Assinatura", imageData: "" }) +
         '<label>Nome do produto<input name="name" maxlength="90" placeholder="Ex.: Assinatura Premium" required /></label><label>Descrição<textarea name="description" maxlength="500" placeholder="Explique o que está incluído"></textarea></label><label>Categoria<select name="categoryId">' + categoryOptions(categories, "") + "</select></label>" +
         '<div class="store-admin-form-grid"><label>Preço (R$)<input name="priceBRL" type="number" min="0.01" step="0.01" placeholder="29,90" required /></label><label>Periodicidade<input name="billingLabel" maxlength="40" placeholder="Ex.: por mês" /></label><label>Selo<input name="badge" maxlength="40" placeholder="Ex.: Mais vendido" /></label><label>Ordem<input name="sortOrder" type="number" min="0" value="0" /></label></div>' +
-        '<div class="store-admin-form-grid"><label>Texto do botão<input name="actionLabel" maxlength="40" value="Ver oferta" required /></label><label>Link de compra ou WhatsApp<input name="actionUrl" type="url" maxlength="1000" placeholder="https://..." /></label></div>' +
+        '<p class="store-admin-delivery-note">Não é necessário cadastrar link. O cliente informa o e-mail e o pedido entra na aba <b>Entregas</b>.</p>' +
         '<label class="store-check"><input name="featured" type="checkbox" /><span>Colocar em Produtos em destaque</span></label><button class="store-save-button" type="submit">Adicionar assinatura</button></form></details>' +
       '<details class="card store-admin-section"><summary><h3>Fotos dos produtos</h3><span>SMM e VPN</span></summary><label class="store-admin-search">Buscar produto<input type="search" data-store-admin-search placeholder="Nome ou categoria" /></label><div class="store-admin-list">' + (mediaProducts.length ? mediaProducts.map(mediaManager).join("") : '<p class="store-admin-empty">Nenhum produto SMM ou VPN cadastrado.</p>') + "</div></details>" +
       '<details class="card store-admin-section" ' + (subscriptions.length ? "" : "") + '><summary><h3>Assinaturas cadastradas</h3><span>' + subscriptions.length + ' produto(s)</span></summary><div class="store-admin-list">' + (subscriptions.length ? subscriptions.map(function (product) { return subscriptionEditor(product, categories); }).join("") : '<p class="store-admin-empty">Nenhuma assinatura cadastrada ainda.</p>') + "</div></details></section>";
@@ -384,7 +396,7 @@
         body = {
           name: data.name, description: data.description || "", categoryId: data.categoryId ? Number(data.categoryId) : null,
           priceBRL: Number(String(data.priceBRL || "").replace(",", ".")), billingLabel: data.billingLabel || "",
-          badge: data.badge || "", sortOrder: Number(data.sortOrder || 0), actionLabel: data.actionLabel || "Ver oferta",
+          badge: data.badge || "", sortOrder: Number(data.sortOrder || 0), actionLabel: "Comprar assinatura",
           actionUrl: data.actionUrl || "", featured: Boolean(data.featured), enabled: type === "subscription-create" ? true : Boolean(data.enabled),
         };
       }
@@ -435,7 +447,101 @@
     }, 40);
   }
 
+  function randomOrderKey() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    return "subscription-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  function openDialog(dialog) {
+    if (!dialog) return;
+    dialog.hidden = false;
+    document.body.classList.add("store-dialog-open");
+    requestAnimationFrame(function () { dialog.classList.add("open"); });
+  }
+
+  function closeDialog(dialog) {
+    if (!dialog) return;
+    dialog.classList.remove("open");
+    setTimeout(function () {
+      dialog.hidden = true;
+      if (!document.querySelector(".store-dialog-backdrop.open")) document.body.classList.remove("store-dialog-open");
+    }, 150);
+  }
+
+  function openSubscriptionCheckout(target) {
+    const modal = document.querySelector("[data-store-purchase-modal]");
+    const form = modal?.querySelector("[data-store-subscription-order]");
+    if (!modal || !form) return;
+    const previous = target.closest(".store-dialog-backdrop");
+    if (previous && previous !== modal) closeDialog(previous);
+    form.reset();
+    form.elements.productId.value = target.dataset.storeSubscription || "";
+    modal.querySelector("[data-store-purchase-name]").textContent = target.dataset.storeProductName || "Assinatura";
+    modal.querySelector("[data-store-purchase-price]").textContent = money(target.dataset.storeProductPrice);
+    openDialog(modal);
+    setTimeout(function () { form.elements.deliveryEmail.focus(); }, 180);
+  }
+
+  function subscriptionStatus(order) {
+    if (order.status === "fulfilled") return { label: "Enviado", className: "fulfilled" };
+    if (order.status === "refunded") return { label: "Estornado", className: "refunded" };
+    return { label: "Aguardando envio", className: "pending" };
+  }
+
+  function subscriptionOrderCard(order) {
+    const status = subscriptionStatus(order);
+    const delivered = order.status === "fulfilled" && order.deliveryData
+      ? '<div class="store-order-delivery"><span>Dados enviados</span><pre>' + escapeHtml(order.deliveryData) + "</pre></div>"
+      : order.status === "pending" ? '<p>O administrador está preparando os dados da sua assinatura.</p>' : '<p>O valor foi devolvido para a sua carteira.</p>';
+    return '<article class="store-order-card"><div class="store-order-head"><div><small>' + escapeHtml(new Date(order.createdAt).toLocaleString("pt-BR")) + '</small><h3>' + escapeHtml(order.productName) + '</h3></div><span class="' + status.className + '">' + status.label + '</span></div><dl><div><dt>Valor</dt><dd>' + money(order.priceBRL) + '</dd></div><div><dt>E-mail de entrega</dt><dd>' + escapeHtml(order.deliveryEmail) + "</dd></div></dl>" + delivered + "</article>";
+  }
+
+  async function openSubscriptionOrders() {
+    const modal = document.querySelector("[data-store-orders-modal]");
+    const host = modal?.querySelector("[data-store-orders-list]");
+    if (!modal || !host) return;
+    host.innerHTML = '<div class="store-dialog-loading"><span class="spinner"></span> Carregando pedidos…</div>';
+    openDialog(modal);
+    try {
+      const orders = await api("/api/subscription-orders");
+      host.innerHTML = Array.isArray(orders) && orders.length
+        ? '<div class="store-order-list">' + orders.map(subscriptionOrderCard).join("") + "</div>"
+        : '<div class="store-dialog-empty">' + storeIcon("history") + '<h3>Nenhuma assinatura comprada</h3><p>Seus pedidos aparecerão aqui.</p></div>';
+    } catch (error) {
+      host.innerHTML = '<div class="store-dialog-empty"><h3>Não foi possível carregar</h3><p>' + escapeHtml(error.message) + "</p></div>";
+    }
+  }
+
+  async function handleSubscriptionOrder(form) {
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.dataset.label = button.innerHTML; button.textContent = "Finalizando…"; }
+    try {
+      await api("/api/subscription-orders", {
+        method: "POST",
+        body: {
+          productId: form.elements.productId.value,
+          deliveryEmail: form.elements.deliveryEmail.value,
+          idempotencyKey: randomOrderKey(),
+        },
+      });
+      closeDialog(form.closest("[data-store-purchase-modal]"));
+      toast("Compra finalizada. O administrador recebeu o pedido de assinatura.");
+      setTimeout(openSubscriptionOrders, 180);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Finalizar com a carteira"; }
+    }
+  }
+
   document.addEventListener("submit", function (event) {
+    const subscriptionOrder = event.target.closest("[data-store-subscription-order]");
+    if (subscriptionOrder) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      handleSubscriptionOrder(subscriptionOrder);
+      return;
+    }
     const form = event.target.closest("[data-store-form]");
     if (!form) return;
     event.preventDefault();
@@ -458,22 +564,17 @@
   document.addEventListener("input", function (event) {
     const productSearch = event.target.closest("[data-store-search]");
     if (productSearch) {
-      const main = productSearch.closest("main.storefront-page");
-      if (!main) return;
+      const dialog = productSearch.closest(".store-search-dialog");
+      if (!dialog) return;
       const query = String(productSearch.value || "").trim().toLowerCase();
       let matches = 0;
-      main.classList.toggle("store-searching", Boolean(query));
-      main.querySelectorAll("[data-store-search-text]").forEach(function (item) {
+      dialog.querySelectorAll("[data-store-search-text]").forEach(function (item) {
         const visible = !query || String(item.dataset.storeSearchText || "").includes(query);
         item.hidden = !visible;
         if (visible) matches += 1;
       });
-      main.querySelectorAll(".store-category-section,.store-featured").forEach(function (section) {
-        const visible = Array.from(section.querySelectorAll("[data-store-search-text]")).some(function (item) { return !item.hidden; });
-        section.hidden = Boolean(query) && !visible;
-      });
-      const empty = main.querySelector("[data-store-search-empty]");
-      if (empty) empty.hidden = !query || matches > 0;
+      const empty = dialog.querySelector("[data-store-search-empty]");
+      if (empty) empty.hidden = matches > 0;
       return;
     }
     const search = event.target.closest("[data-store-admin-search]");
@@ -485,13 +586,41 @@
   });
 
   document.addEventListener("click", async function (event) {
+    const close = event.target.closest("[data-store-close-dialog]");
+    if (close) {
+      event.preventDefault();
+      closeDialog(close.closest(".store-dialog-backdrop"));
+      return;
+    }
+    if (event.target.classList?.contains("store-dialog-backdrop")) {
+      closeDialog(event.target);
+      return;
+    }
+    const openSearch = event.target.closest("[data-store-open-search]");
+    if (openSearch) {
+      event.preventDefault();
+      const modal = document.querySelector("[data-store-search-modal]");
+      openDialog(modal);
+      setTimeout(function () { modal?.querySelector("[data-store-search]")?.focus(); }, 180);
+      return;
+    }
+    const openOrders = event.target.closest("[data-store-open-orders]");
+    if (openOrders) {
+      event.preventDefault();
+      openSubscriptionOrders();
+      return;
+    }
     const expand = event.target.closest("[data-store-category-expand]");
     if (expand) {
       event.preventDefault();
       const section = expand.closest(".store-category-section");
       if (!section) return;
       section.classList.toggle("store-category-expanded");
-      expand.textContent = section.classList.contains("store-category-expanded") ? "Mostrar menos" : "Ver mais";
+      const expanded = section.classList.contains("store-category-expanded");
+      const label = expand.querySelector("span");
+      const count = expand.querySelector("b");
+      if (label) label.textContent = expanded ? "Mostrar menos" : "Ver mais";
+      if (count) count.hidden = expanded;
       return;
     }
     const scroll = event.target.closest("[data-store-scroll]");
@@ -503,15 +632,19 @@
     const smm = event.target.closest("[data-store-smm]");
     if (smm) {
       event.preventDefault();
+      closeDialog(smm.closest(".store-dialog-backdrop"));
       queueServiceSelection(smm.dataset.storeSmm, smm.dataset.storeCategory);
+      return;
+    }
+    const vpn = event.target.closest('[data-vpn-action="buy"]');
+    if (vpn) {
+      closeDialog(vpn.closest(".store-dialog-backdrop"));
       return;
     }
     const subscription = event.target.closest("[data-store-subscription]");
     if (subscription) {
       event.preventDefault();
-      const url = String(subscription.dataset.storeUrl || "");
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      else toast("O administrador ainda não informou o link desta oferta.", true);
+      openSubscriptionCheckout(subscription);
       return;
     }
     const remove = event.target.closest("[data-store-remove-image]");
@@ -544,9 +677,12 @@
     const current = session();
     if (!current || !current.token || !app) return;
     if (current.role === "member") {
-      enhanceMemberHome(app.querySelector(".app-shell > main.page"));
+      const main = app.querySelector(".app-shell > main.page");
+      if (!main?.classList.contains("storefront-page")) document.body.classList.remove("storefront-active", "store-dialog-open");
+      enhanceMemberHome(main);
       applyQueuedService();
     } else if (current.role === "admin") {
+      document.body.classList.remove("storefront-active", "store-dialog-open");
       enhanceAdminCatalog(app.querySelector(".admin-catalog-page"));
     }
   }
