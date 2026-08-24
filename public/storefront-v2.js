@@ -86,27 +86,43 @@
     return '<span class="store-image-fallback ' + escapeHtml(className || "") + '" aria-hidden="true"><b>' + escapeHtml(initial) + "</b><small>TW STORE</small></span>";
   }
 
-  function productButton(product) {
-    if (product.kind === "smm") {
-      return '<button type="button" class="store-product-button" data-store-smm="' + escapeHtml(product.sourceId) + '" data-store-category="' + escapeHtml(product.categoryName) + '">Comprar agora <span>→</span></button>';
-    }
-    if (product.kind === "vpn") {
-      return '<button type="button" class="store-product-button" data-vpn-action="buy" data-product-id="' + escapeHtml(product.sourceId) + '">Comprar acesso <span>→</span></button>';
-    }
-    return '<button type="button" class="store-product-button" data-store-subscription="' + escapeHtml(product.sourceId) + '" data-store-url="' + escapeHtml(product.actionUrl || "") + '">' + escapeHtml(product.actionLabel || "Ver oferta") + ' <span>→</span></button>';
+  function storeIcon(name) {
+    const paths = {
+      arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+      cart: '<circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6"/>',
+      check: '<path d="M20 6 9 17l-5-5"/>',
+      headset: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19c0 1.1-.9 2-2 2h-3"/><rect x="3" y="13" width="4" height="6" rx="2"/><rect x="17" y="13" width="4" height="6" rx="2"/>',
+      search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/>',
+      shield: '<path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6Z"/><path d="m9 12 2 2 4-5"/>',
+      wallet: '<path d="M4 6h14a2 2 0 0 1 2 2v10H4a2 2 0 0 1-2-2V6a3 3 0 0 1 3-3h12"/><path d="M16 11h4v4h-4a2 2 0 1 1 0-4Z"/>',
+      zap: '<path d="m13 2-9 12h7l-1 8 9-12h-7Z"/>',
+    };
+    return '<svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true">' + (paths[name] || paths.check) + "</svg>";
   }
 
-  function productCard(product) {
+  function productButton(product) {
+    if (product.kind === "smm") {
+      return '<button type="button" class="store-product-button" data-store-smm="' + escapeHtml(product.sourceId) + '" data-store-category="' + escapeHtml(product.categoryName) + '">' + storeIcon("cart") + '<span>Comprar agora</span>' + storeIcon("arrow") + "</button>";
+    }
+    if (product.kind === "vpn") {
+      return '<button type="button" class="store-product-button" data-vpn-action="buy" data-product-id="' + escapeHtml(product.sourceId) + '">' + storeIcon("cart") + '<span>Comprar acesso</span>' + storeIcon("arrow") + "</button>";
+    }
+    return '<button type="button" class="store-product-button" data-store-subscription="' + escapeHtml(product.sourceId) + '" data-store-url="' + escapeHtml(product.actionUrl || "") + '">' + storeIcon("cart") + '<span>' + escapeHtml(product.actionLabel || "Ver oferta") + "</span>" + storeIcon("arrow") + "</button>";
+  }
+
+  function productCard(product, extraClass) {
     const priceLabel = product.priceLabel ? '<small>' + escapeHtml(product.priceLabel) + "</small>" : "";
-    return '<article class="store-product-card" data-store-product-kind="' + escapeHtml(product.kind) + '">' +
+    const searchable = [product.name, product.categoryName, product.description, product.badge].join(" ").toLowerCase();
+    return '<article class="store-product-card' + escapeHtml(extraClass || "") + '" data-store-search-text="' + escapeHtml(searchable) + '" data-store-product-kind="' + escapeHtml(product.kind) + '">' +
       '<div class="store-product-media">' + productImage(product, "store-product-image") +
         (product.badge ? '<span class="store-product-badge">' + escapeHtml(product.badge) + "</span>" : "") +
-        (product.featured ? '<span class="store-featured-badge">DESTAQUE</span>' : "") +
+        '<span class="store-delivery-badge">' + storeIcon("zap") + " ENTREGA ONLINE</span>" +
+        (product.featured ? '<span class="store-featured-badge">EM DESTAQUE</span>' : "") +
       "</div>" +
       '<div class="store-product-copy"><span class="store-product-category">' + escapeHtml(product.categoryName || "Outros") + "</span>" +
         '<h3>' + escapeHtml(product.name) + "</h3>" +
-        '<p>' + escapeHtml(product.description || "Produto selecionado pela Tw Store.") + "</p>" +
         '<div class="store-product-price"><strong>' + money(product.priceBRL) + "</strong>" + priceLabel + "</div>" +
+        '<span class="store-payment-note">Pagamento seguro</span>' +
         productButton(product) +
       "</div></article>";
   }
@@ -127,42 +143,68 @@
     return products.filter(function (product) { return Number(product.categoryId) === Number(category.id); });
   }
 
-  function heroGallery(products) {
-    const chosen = products.filter(function (product) { return product.imageUrl || product.imageData; }).slice(0, 3);
-    const source = chosen.length ? chosen : products.slice(0, 3);
-    if (!source.length) return '<div class="store-hero-empty"><b>TW</b><span>Sua vitrine começa aqui</span></div>';
-    return '<div class="store-hero-gallery">' + source.map(function (product, index) {
-      return '<div class="store-hero-tile store-hero-tile-' + index + '">' + productImage(product, "store-hero-image") + '<span>' + escapeHtml(product.name) + "</span></div>";
-    }).join("") + "</div>";
+  function heroProduct(product) {
+    if (!product) {
+      return '<div class="store-hero-empty"><span class="store-hero-empty-orbit"></span><b>TW</b><strong>TW STORE</strong><small>Sua vitrine digital</small></div>';
+    }
+    return '<div class="store-hero-product">' +
+      '<span class="store-hero-product-label">OFERTA EM DESTAQUE</span>' +
+      '<div class="store-hero-product-media">' + productImage(product, "store-hero-image") + "</div>" +
+      '<div class="store-hero-product-copy"><div><small>' + escapeHtml(product.categoryName || "Destaque") + '</small><h2>' + escapeHtml(product.name) + '</h2></div><strong>' + money(product.priceBRL) + "</strong></div>" +
+      productButton(product) +
+    "</div>";
+  }
+
+  function featuredCard(product) {
+    const searchable = [product.name, product.categoryName, product.description, product.badge].join(" ").toLowerCase();
+    return '<article class="store-feature-card" data-store-search-text="' + escapeHtml(searchable) + '">' +
+      productImage(product, "store-feature-image") +
+      '<span class="store-feature-shade"></span><span class="store-feature-label">EM DESTAQUE</span>' +
+      '<div class="store-feature-copy"><small>' + escapeHtml(product.categoryName || "Destaque") + '</small><h3>' + escapeHtml(product.name) + '</h3><strong>' + money(product.priceBRL) + "</strong>" + productButton(product) + "</div>" +
+    "</article>";
   }
 
   function renderMemberStorefront(main, payload) {
     if (!document.body.contains(main)) return;
     const catalog = normalizedCatalog(payload);
-    const topbar = main.querySelector(".topbar");
+    const current = session() || {};
     const balance = main.querySelector(".balance-value")?.textContent || "Minha carteira";
-    const featured = catalog.products.filter(function (product) { return product.featured; }).slice(0, 4);
-    const spotlight = featured.length ? featured : catalog.products.slice(0, 4);
+    const featured = catalog.products.filter(function (product) { return product.featured; }).slice(0, 3);
+    const spotlight = featured.length ? featured : catalog.products.slice(0, 3);
+    const hero = spotlight[0] || catalog.products[0];
+    const initial = String(current.member || current.username || "T").trim().charAt(0).toUpperCase() || "T";
     const sections = catalog.categories.map(function (category) {
       const products = productsForCategory(catalog.products, category);
       if (!products.length) return "";
       const hasVpn = products.some(function (product) { return product.kind === "vpn"; });
       return '<section class="store-category-section" id="store-category-' + escapeHtml(category.id) + '" ' + (hasVpn ? 'data-vpn-member-products="true"' : "") + '>' +
-        '<div class="store-section-heading"><div><span>CATÁLOGO</span><h2>' + escapeHtml(category.name) + '</h2><p>' + escapeHtml(category.description || "Escolha a melhor opção para você.") + '</p></div><button type="button" data-store-scroll="store-category-' + escapeHtml(category.id) + '">Ver produtos</button></div>' +
-        '<div class="store-product-grid">' + products.map(productCard).join("") + "</div>" +
+        '<div class="store-section-heading"><div><h2>' + escapeHtml(category.name) + '</h2><p>' + escapeHtml(category.description || "Escolha a melhor opção para você.") + '</p></div>' + (products.length > 4 ? '<button type="button" data-store-category-expand>Ver mais ' + (products.length - 4) + "+</button>" : '<span class="store-section-count">' + products.length + " produto(s)</span>") + "</div>" +
+        '<div class="store-product-grid">' + products.map(function (product, index) { return productCard(product, index > 3 ? " store-product-extra" : ""); }).join("") + "</div>" +
       "</section>";
     }).join("");
 
     main.classList.add("storefront-page");
     main.dataset.storefrontEnhanced = "true";
-    main.innerHTML = (topbar ? topbar.outerHTML : "") +
-      '<div class="store-promo">Ofertas e novidades organizadas para você <span>•</span> Compra segura na Tw Store</div>' +
-      '<section class="store-hero"><div class="store-hero-copy"><span class="store-kicker">BEM-VINDO(A) À TW STORE</span><h1>Tudo o que você precisa, em um só lugar.</h1><p>Explore produtos, serviços e assinaturas separados por catálogo, com preços claros e suporte quando precisar.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-scroll="store-catalog-start">Explorar catálogo</button><button type="button" class="store-secondary-action" data-nav="wallet">' + escapeHtml(balance) + "</button></div></div>" + heroGallery(catalog.products) + "</section>" +
-      '<section class="store-trust-strip"><div><b>100% seguro</b><span>Conta e carteira protegidas</span></div><div><b>Processamento rápido</b><span>Pedidos sem etapas desnecessárias</span></div><div><b>Suporte humano</b><span>Ajuda dentro do aplicativo</span></div></section>' +
-      (catalog.categories.length ? '<nav class="store-category-nav" aria-label="Catálogos">' + catalog.categories.map(function (category) { const count = productsForCategory(catalog.products, category).length; return count ? '<button type="button" data-store-scroll="store-category-' + escapeHtml(category.id) + '">' + escapeHtml(category.name) + '<small>' + count + "</small></button>" : ""; }).join("") + "</nav>" : "") +
-      (spotlight.length ? '<section class="store-featured" id="store-catalog-start"><div class="store-section-heading"><div><span>ESCOLHAS DA LOJA</span><h2>Produtos em destaque</h2><p>As principais opções selecionadas pelo administrador.</p></div></div><div class="store-product-grid">' + spotlight.map(productCard).join("") + "</div></section>" : '<section class="store-empty" id="store-catalog-start"><h2>A vitrine está sendo preparada</h2><p>O administrador ainda não publicou produtos com foto e preço.</p></section>') +
-      sections +
-      '<section class="store-how"><div class="store-section-heading"><div><span>COMO FUNCIONA</span><h2>Simples do início ao fim</h2></div></div><div class="store-steps"><article><b>01</b><h3>Escolha</h3><p>Navegue pelos catálogos e encontre o produto ideal.</p></article><article><b>02</b><h3>Confira</h3><p>Veja a descrição, o preço e as condições antes de comprar.</p></article><article><b>03</b><h3>Compre</h3><p>Finalize pela carteira ou pelo link definido para a oferta.</p></article><article><b>04</b><h3>Acompanhe</h3><p>Consulte seus pedidos e fale com o suporte quando precisar.</p></article></div></section>';
+    const categoryNav = catalog.categories.length
+      ? '<nav class="store-category-nav" aria-label="Categorias">' + catalog.categories.map(function (category) {
+        const count = productsForCategory(catalog.products, category).length;
+        return count ? '<button type="button" data-store-scroll="store-category-' + escapeHtml(category.id) + '">' + escapeHtml(category.name) + '<small>' + count + "</small></button>" : "";
+      }).join("") + "</nav>"
+      : "";
+    const featuredSection = spotlight.length
+      ? '<section class="store-featured" id="store-catalog-start"><div class="store-section-heading"><div><h2>Produtos em Destaque</h2><p>As ofertas selecionadas para você.</p></div><span class="store-section-count">' + spotlight.length + ' destaque(s)</span></div><div class="store-feature-grid">' + spotlight.map(featuredCard).join("") + "</div></section>"
+      : '<section class="store-empty" id="store-catalog-start"><h2>A vitrine está sendo preparada</h2><p>O administrador ainda não publicou produtos com foto e preço.</p></section>';
+
+    main.innerHTML =
+      '<a class="store-promo" href="#store-catalog-start" data-store-scroll="store-catalog-start"><span class="store-promo-shine"></span>' + storeIcon("zap") + " CLIQUE AQUI E GARANTA OFERTAS EXCLUSIVAS! ❤️</a>" +
+      '<header class="store-reference-header"><div class="store-header-inner"><button type="button" class="store-brand" data-store-scroll="store-catalog-start"><span class="store-brand-mark">TW</span><span><b>Tw Store</b><small>Loja verificada ' + storeIcon("check") + '</small></span></button><label class="store-search">' + storeIcon("search") + '<input type="search" data-store-search placeholder="Buscar produto" autocomplete="off" maxlength="100" /></label><div class="store-header-actions"><button type="button" class="store-support-button" data-nav="settings">' + storeIcon("headset") + '<span>Suporte</span></button><button type="button" class="store-wallet-button" data-nav="wallet">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + '</span></button><span class="store-avatar" title="' + escapeHtml(current.member || current.username || "Minha conta") + '">' + escapeHtml(initial) + "</span></div></div></header>" +
+      categoryNav +
+      '<section class="store-hero"><div class="store-hero-copy"><div class="store-review-badge"><span>' + storeIcon("check") + '</span><b>LOJA VERIFICADA</b><i></i><small>COMPRA PROTEGIDA</small></div><h1><span>Bem Vindo(a)</span><strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-scroll="store-catalog-start">' + storeIcon("cart") + ' Ver produtos</button><button type="button" class="store-secondary-action" data-nav="settings">' + storeIcon("headset") + " Suporte</button></div></div>" + heroProduct(hero) + "</section>" +
+      featuredSection + sections +
+      '<section class="store-how"><div class="store-how-intro"><span>EXPERIÊNCIA COMPLETA</span><h2>Tudo que você precisa,<br><strong>em um só lugar</strong></h2><p>Explore nossa plataforma e encontre serviços, assinaturas e acessos com uma jornada simples do começo ao fim.</p></div><div class="store-steps"><article><b>01</b><span>' + storeIcon("search") + '</span><h3>Selecione o produto</h3><p>Navegue e escolha a opção ideal para você.</p></article><article><b>02</b><span>' + storeIcon("shield") + '</span><h3>Pagamento seguro</h3><p>Confira o valor e finalize com segurança.</p></article><article><b>03</b><span>' + storeIcon("zap") + '</span><h3>Processamento rápido</h3><p>Seu pedido é processado sem etapas desnecessárias.</p></article><article><b>04</b><span>' + storeIcon("check") + '</span><h3>Aproveite</h3><p>Acompanhe tudo pela sua conta e fale com o suporte.</p></article></div></section>' +
+      '<section class="store-service-proof"><div class="store-section-heading"><div><h2>Uma experiência feita para você</h2><p>Do pedido ao acompanhamento, tudo permanece dentro da Tw Store.</p></div></div><div class="store-proof-grid"><article>' + storeIcon("shield") + '<div><h3>Ambiente protegido</h3><p>Sessão e carteira com acesso autenticado.</p></div></article><article>' + storeIcon("zap") + '<div><h3>Processo ágil</h3><p>Catálogo direto e acompanhamento dos pedidos.</p></div></article><article>' + storeIcon("headset") + '<div><h3>Suporte humano</h3><p>Ajuda disponível dentro da plataforma.</p></div></article></div></section>' +
+      '<footer class="store-footer"><div class="store-footer-grid"><div class="store-footer-brand"><span class="store-brand-mark">TW</span><div><h2>Tw Store</h2><p>Qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p></div></div><div><h3>Informações</h3><button type="button" data-nav="orders">Meus pedidos</button><button type="button" data-nav="wallet">Minha carteira</button></div><div><h3>Atendimento</h3><button type="button" data-nav="settings">Suporte</button><button type="button" data-nav="settings">Minha conta</button></div><div><h3>Selos de confiança</h3><span>' + storeIcon("shield") + ' Acesso seguro</span><span>' + storeIcon("check") + ' Loja verificada</span></div></div><div class="store-footer-bottom"><span>Copyright © 2026 — Tw Store.</span><small>Layout em vermelho • Hype Equipe</small></div></footer>' +
+      '<div class="store-trust-footer"><div>' + storeIcon("shield") + '<span><b>100% Seguro</b><small>Conta protegida</small></span></div><div>' + storeIcon("zap") + '<span><b>Processamento rápido</b><small>Pedidos online</small></span></div><div>' + storeIcon("headset") + '<span><b>Suporte</b><small>Atendimento humano</small></span></div></div><div class="store-search-empty" data-store-search-empty hidden><h2>Nenhum produto encontrado</h2><p>Tente buscar por outro nome ou categoria.</p></div>';
   }
 
   async function enhanceMemberHome(main) {
@@ -414,6 +456,26 @@
   });
 
   document.addEventListener("input", function (event) {
+    const productSearch = event.target.closest("[data-store-search]");
+    if (productSearch) {
+      const main = productSearch.closest("main.storefront-page");
+      if (!main) return;
+      const query = String(productSearch.value || "").trim().toLowerCase();
+      let matches = 0;
+      main.classList.toggle("store-searching", Boolean(query));
+      main.querySelectorAll("[data-store-search-text]").forEach(function (item) {
+        const visible = !query || String(item.dataset.storeSearchText || "").includes(query);
+        item.hidden = !visible;
+        if (visible) matches += 1;
+      });
+      main.querySelectorAll(".store-category-section,.store-featured").forEach(function (section) {
+        const visible = Array.from(section.querySelectorAll("[data-store-search-text]")).some(function (item) { return !item.hidden; });
+        section.hidden = Boolean(query) && !visible;
+      });
+      const empty = main.querySelector("[data-store-search-empty]");
+      if (empty) empty.hidden = !query || matches > 0;
+      return;
+    }
     const search = event.target.closest("[data-store-admin-search]");
     if (!search) return;
     const query = String(search.value || "").trim().toLowerCase();
@@ -423,6 +485,15 @@
   });
 
   document.addEventListener("click", async function (event) {
+    const expand = event.target.closest("[data-store-category-expand]");
+    if (expand) {
+      event.preventDefault();
+      const section = expand.closest(".store-category-section");
+      if (!section) return;
+      section.classList.toggle("store-category-expanded");
+      expand.textContent = section.classList.contains("store-category-expanded") ? "Mostrar menos" : "Ver mais";
+      return;
+    }
     const scroll = event.target.closest("[data-store-scroll]");
     if (scroll) {
       event.preventDefault();
