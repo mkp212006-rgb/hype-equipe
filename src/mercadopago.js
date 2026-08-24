@@ -2,7 +2,7 @@ const crypto = require('crypto');
 
 const ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN || '';
 const WEBHOOK_SECRET = process.env.MERCADO_PAGO_WEBHOOK_SECRET || '';
-const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || 'https://hype-equipe-production.up.railway.app').replace(/\/$/, '');
+const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || 'https://tw-store-application.up.railway.app').replace(/\/$/, '');
 
 function requireMP() {
   if (!ACCESS_TOKEN) {
@@ -47,7 +47,7 @@ async function createDepositPreference({ depositId, chargeBRL }) {
         unit_price: Number(chargeBRL.toFixed(2)),
       }],
       external_reference: `deposit:${depositId}`,
-      notification_url: `${PUBLIC_BASE_URL}/webhooks/mercadopago?source_news=webhooks`,
+      notification_url: `${PUBLIC_BASE_URL}/webhooks/mercado-pago?source_news=webhooks`,
       back_urls: {
         success: `${PUBLIC_BASE_URL}/payment/success`,
         pending: `${PUBLIC_BASE_URL}/payment/pending`,

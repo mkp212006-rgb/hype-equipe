@@ -9,7 +9,11 @@ import { loadConfig } from "./config.js";
 import { verifyToken } from "./crypto.js";
 import { createDatabase } from "./db.js";
 import { MercadoPagoClient } from "./mercado-pago-client.js";
+import { createPaymentPushFeatures } from "./payment-push-features.js";
+import { createReportFeatures } from "./report-features.js";
 import { SmmClient } from "./smm-client.js";
+import { createSupportFeatures } from "./support-features.js";
+import { createVpnFeatures } from "./vpn-features.js";
 
 const { Pool } = pg;
 const config = loadConfig();
@@ -477,14 +481,25 @@ catalogRouter.post("/admin/services/:serviceId/sync", guarded("admin", async (re
   res.json(mapCatalogService(await getCatalogService(serviceId)));
 }));
 
+const paymentPushFeatures = await createPaymentPushFeatures({ config, db });
+const supportFeatures = await createSupportFeatures({ config, db });
+const vpnFeatures = await createVpnFeatures({ config, db });
+const reportFeatures = await createReportFeatures({ config, db });
 const legacyApp = await createApp({ config, db, smm, mercadoPago });
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
+app.use(paymentPushFeatures.router);
+app.use(supportFeatures.router);
+app.use(vpnFeatures.router);
+app.use(reportFeatures.router);
 app.use(catalogRouter);
 app.use(legacyApp);
 
 const server = http.createServer(app);
+server.requestTimeout = 30_000;
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
 
 server.listen(config.port, "0.0.0.0", () => {
   console.log(`Hype Equipe ouvindo na porta ${config.port}.`);
@@ -498,7 +513,14 @@ async function shutdown(signal) {
   const force = setTimeout(() => process.exit(1), 10_000).unref();
   server.close(async () => {
     clearTimeout(force);
-    await Promise.allSettled([db.close(), catalogPool.end()]);
+    await Promise.allSettled([
+      db.close(),
+      catalogPool.end(),
+      paymentPushFeatures.close(),
+      supportFeatures.close(),
+      vpnFeatures.close(),
+      reportFeatures.close(),
+    ]);
     process.exit(0);
   });
 }

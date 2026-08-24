@@ -504,9 +504,13 @@ export async function createApp({ config, db, smm, mercadoPago }) {
   app.use(express.static(config.publicDirectory, {
     index: "index.html",
     etag: true,
-    maxAge: production ? "1h" : 0,
+    maxAge: 0,
     setHeaders(res, filePath) {
-      if (filePath.endsWith("index.html")) res.setHeader("Cache-Control", "no-cache");
+      if (/\.(?:html|js|css|webmanifest)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "no-cache, must-revalidate");
+      } else if (production) {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      }
     },
   }));
 

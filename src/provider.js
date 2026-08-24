@@ -1,9 +1,9 @@
-const API_URL = process.env.SMMHYPE_API_URL || '';
-const API_KEY = process.env.SMMHYPE_API_KEY || '';
+const API_URL = process.env.SMM_API_URL || process.env.SMMHYPE_API_URL || '';
+const API_KEY = process.env.SMM_API_KEY || process.env.SMMHYPE_API_KEY || '';
 
 function requireProviderConfig() {
   if (!API_URL || !API_KEY) {
-    const error = new Error('SMMHype não configurada no servidor. Defina SMMHYPE_API_URL e SMMHYPE_API_KEY.');
+    const error = new Error('SMMHype não configurada no servidor. Defina SMM_API_URL e SMM_API_KEY.');
     error.status = 503;
     throw error;
   }
