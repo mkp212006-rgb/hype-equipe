@@ -138,6 +138,8 @@ test("serves the storefront layout assets from the same Railway origin", async (
   const html = await home.text();
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
+  assert.match(html, /theme-color" content="#000000"/);
+  assert.match(html, /20260824-modals-2100/);
 
   const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
@@ -153,10 +155,29 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(stylesheetSource, /store-mosaic/);
   assert.match(stylesheetSource, /store-reference-header/);
   assert.match(stylesheetSource, /store-feature-grid/);
+  assert.match(stylesheetSource, /store-more-menu/);
+  assert.match(stylesheetSource, /store-profile-dialog/);
+  assert.match(stylesheetSource, /store-support-dialog/);
+  assert.match(stylesheetSource, /store-smm-detail-dialog/);
   assert.match(stylesheetSource, /#000/);
   assert.match(scriptSource, /\/api\/storefront/);
   assert.match(scriptSource, /\/api\/subscription-orders/);
   assert.match(scriptSource, /data-store-search/);
+  assert.match(scriptSource, /data-store-toggle-more/);
+  assert.match(scriptSource, /data-store-open-profile/);
+  assert.match(scriptSource, /data-store-open-support/);
+  assert.match(scriptSource, /data-store-open-tickets/);
+  assert.match(scriptSource, /data-store-smm-order/);
+  assert.match(scriptSource, /data-store-profile-password/);
+  assert.match(scriptSource, /data-store-new-ticket/);
+  assert.match(scriptSource, /data-store-ticket-reply/);
+  assert.match(scriptSource, /Link do perfil ou publicação/);
+  assert.match(scriptSource, /Informações do serviço/);
+  assert.match(scriptSource, /\/api\/account/);
+  assert.match(scriptSource, /\/api\/tickets/);
+  assert.match(scriptSource, /\/api\/orders/);
+  assert.doesNotMatch(scriptSource, /queueServiceSelection/);
+  assert.doesNotMatch(scriptSource, /data-nav="settings"/);
   assert.match(scriptSource, /CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS/);
   assert.match(scriptSource, /tw-store-icon\.png/);
   assert.match(adminScriptSource, /\/admin\/subscription-orders/);
