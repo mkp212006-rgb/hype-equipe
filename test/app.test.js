@@ -139,18 +139,26 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
 
-  const [stylesheet, script] = await Promise.all([
+  const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
     fetch(`${server.baseUrl}/storefront-v2.js`),
+    fetch(`${server.baseUrl}/admin-layout-v1.js`),
   ]);
   assert.equal(stylesheet.status, 200);
   assert.equal(script.status, 200);
+  assert.equal(adminScript.status, 200);
   const stylesheetSource = await stylesheet.text();
   const scriptSource = await script.text();
-  assert.match(stylesheetSource, /store-product-grid/);
+  const adminScriptSource = await adminScript.text();
+  assert.match(stylesheetSource, /store-mosaic/);
   assert.match(stylesheetSource, /store-reference-header/);
   assert.match(stylesheetSource, /store-feature-grid/);
+  assert.match(stylesheetSource, /#000/);
   assert.match(scriptSource, /\/api\/storefront/);
+  assert.match(scriptSource, /\/api\/subscription-orders/);
   assert.match(scriptSource, /data-store-search/);
-  assert.match(scriptSource, /CLIQUE AQUI E GARANTA OFERTAS EXCLUSIVAS/);
+  assert.match(scriptSource, /CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS/);
+  assert.match(scriptSource, /tw-store-icon\.png/);
+  assert.match(adminScriptSource, /\/admin\/subscription-orders/);
+  assert.match(adminScriptSource, /Entregas de assinaturas/);
 });
