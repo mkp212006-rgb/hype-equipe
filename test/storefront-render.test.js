@@ -92,6 +92,8 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(main.innerHTML, /data-store-open-tickets/);
   assert.match(main.innerHTML, /store-header-left/);
   assert.match(main.innerHTML, /store-header-wallet/);
+  assert.match(main.innerHTML, /class="store-header-wallet" data-nav="wallet"/);
+  assert.match(main.innerHTML, /Abrir carteira e adicionar saldo/);
   assert.match(main.innerHTML, /R\$ 50,00/);
   assert.match(main.innerHTML, /data-store-smm="101"/);
   assert.match(main.innerHTML, /data-store-smm-modal/);

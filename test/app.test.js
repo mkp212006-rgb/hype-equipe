@@ -139,7 +139,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
   assert.match(html, /theme-color" content="#000000"/);
-  assert.match(html, /20260824-header-wallet-2110/);
+  assert.match(html, /20260824-wallet-payment-2120/);
 
   const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
@@ -182,6 +182,8 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(scriptSource, /https:\/\/wa\.me\/5512983087742/);
   assert.match(scriptSource, /store-header-left/);
   assert.match(scriptSource, /store-header-wallet/);
+  assert.match(scriptSource, /class="store-header-wallet" data-nav="wallet"/);
+  assert.match(scriptSource, /Abrir carteira e adicionar saldo/);
   assert.doesNotMatch(scriptSource, /queueServiceSelection/);
   assert.doesNotMatch(scriptSource, /data-nav="settings"/);
   assert.doesNotMatch(scriptSource, /function mosaicTile/);
