@@ -3,7 +3,9 @@
 
   const SESSION_KEY = "tw-store.session.v3";
   const CATALOG_KEY = "tw-store.catalog.v1";
-  const DEFAULT_API_URL = "https://hype-equipe-production.up.railway.app";
+  const runtime = window.TW_STORE_CONFIG || {};
+  const DEFAULT_API_URL = runtime.apiBaseUrl || "https://tw-store-application.up.railway.app";
+  const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
 
@@ -21,6 +23,7 @@
     catalogConfig: loadJson(CATALOG_KEY) || { categories: [], serviceMeta: {} },
     catalogServerSupported: false,
     error: "",
+    bootstrapRunning: false,
   };
 
   const icons = {
@@ -261,7 +264,7 @@
     async request(path, options) {
       const config = options || {};
       const controller = new AbortController();
-      const timer = setTimeout(function () { controller.abort(); }, 25_000);
+      const timer = setTimeout(function () { controller.abort(); }, Number(config.timeoutMs) || REQUEST_TIMEOUT_MS);
       try {
         const response = await fetch(`${this.baseUrl}${path}`, {
           method: config.method || "GET",
@@ -272,6 +275,8 @@
           },
           body: config.body ? JSON.stringify(config.body) : undefined,
           signal: controller.signal,
+          cache: "no-store",
+          credentials: "same-origin",
         });
         const text = await response.text();
         let payload = {};
@@ -362,7 +367,20 @@
   }
 
   function renderLoading() {
-    app.innerHTML = `<div class="loading-page"><div><div class="brand-mark brand-mark-image">T</div><div class="spinner" style="margin:0 auto 13px"></div><div>Conectando ao servidor seguro…</div></div></div>`;
+    app.innerHTML = `<div class="loading-page"><div><div class="brand-mark brand-mark-image">T</div><div class="spinner" style="margin:0 auto 13px"></div><div>Conectando ao servidor seguro…</div><small>Isso pode levar alguns segundos quando o Railway está iniciando.</small></div></div>`;
+  }
+
+  function renderConnectionError() {
+    app.innerHTML = shell(`
+      ${brand()}
+      <section class="card connection-error" role="alert">
+        <div class="empty-icon">${icon("server")}</div>
+        <h1>Não foi possível carregar agora</h1>
+        <p>${escapeHtml(state.error || "O servidor não respondeu dentro do limite de segurança.")}</p>
+        <button type="button" class="button button-primary" data-action="bootstrap-retry">${icon("refresh")} Tentar novamente</button>
+        <button type="button" class="button button-secondary mt-12" data-action="logout">Sair da conta</button>
+      </section>
+    `, false);
   }
 
   function renderLogin(adminMode) {
@@ -788,6 +806,7 @@
 
   function render() {
     if (state.screen === "loading") return renderLoading();
+    if (state.screen === "connection-error") return renderConnectionError();
     if (state.screen === "login") return renderLogin(false);
     if (state.screen === "register") return renderRegister();
     if (state.screen === "admin-login") return renderLogin(true);
@@ -800,13 +819,18 @@
   }
 
   async function bootstrap() {
+    if (state.bootstrapRunning) return;
+    state.bootstrapRunning = true;
     state.apiUrl = DEFAULT_API_URL;
     cleanupAccidentalTestState();
     if (!state.session) {
       clearSession();
       state.screen = "login";
-      return render();
+      state.bootstrapRunning = false;
+      render();
+      return;
     }
+    state.error = "";
     renderLoading();
     try {
       const info = await client().request("/api/info");
@@ -821,26 +845,37 @@
         state.screen = "home";
       }
     } catch (error) {
-      clearSession();
-      state.screen = "login";
-      toast(error.message, "error");
+      if ([401, 403].includes(Number(error.status))) {
+        clearSession();
+        state.screen = "login";
+        toast("Sua sessão expirou. Entre novamente.", "error");
+      } else {
+        state.error = error.message;
+        state.screen = "connection-error";
+      }
+    } finally {
+      state.bootstrapRunning = false;
     }
     render();
   }
 
   async function loadMemberData() {
-    const core = await Promise.all([
+    const core = await Promise.allSettled([
       client().request("/api/services"),
       client().request("/api/orders"),
       client().request("/api/balance"),
+      client().request("/api/wallet"),
     ]);
-    state.services = core[0];
-    state.orders = core[1];
-    state.balance = core[2];
-    try {
-      state.wallet = await client().request("/api/wallet");
+    const requiredFailure = core.slice(0, 3).find(function (result) { return result.status === "rejected"; });
+    if (requiredFailure) throw requiredFailure.reason;
+    state.services = core[0].value;
+    state.orders = core[1].value;
+    state.balance = core[2].value;
+    if (core[3].status === "fulfilled") {
+      state.wallet = core[3].value;
       state.walletSupported = true;
-    } catch (error) {
+    } else {
+      const error = core[3].reason;
       if (error.status !== 404) throw error;
       state.walletSupported = false;
       state.wallet = { balance: 0, currency: "BRL", transactions: [] };
@@ -848,14 +883,16 @@
   }
 
   async function loadAdminData() {
-    const results = await Promise.all([
+    const results = await Promise.allSettled([
       client().request("/admin/services"),
       client().request("/admin/summary"),
+      client().request("/admin/categories"),
     ]);
-    state.services = results[0];
-    state.adminSummary = results[1];
-    try {
-      const categories = await client().request("/admin/categories");
+    if (results[0].status === "rejected") throw results[0].reason;
+    state.services = results[0].value;
+    state.adminSummary = results[1].status === "fulfilled" ? results[1].value : {};
+    if (results[2].status === "fulfilled") {
+      const categories = results[2].value;
       state.catalogServerSupported = true;
       state.catalogConfig = normalizeCatalogConfig({
         categories: (Array.isArray(categories) ? categories : []).map(function (item) {
@@ -872,7 +909,7 @@
         };
       });
       saveCatalogConfig();
-    } catch (error) {
+    } else {
       state.catalogServerSupported = false;
       state.catalogConfig = normalizeCatalogConfig(state.catalogConfig);
     }
@@ -1078,6 +1115,10 @@
         clearSession();
         state.screen = "login";
         render();
+      } else if (Number(error.status) === 0 && state.session) {
+        state.error = error.message;
+        state.screen = "connection-error";
+        render();
       }
     } finally {
       buttonBusy(submit, false);
@@ -1087,6 +1128,7 @@
   async function handleAction(button) {
     const action = button.dataset.action;
     const id = button.dataset.id;
+    if (action === "bootstrap-retry") return bootstrap();
     if (action === "admin-login-screen") return navigate("admin-login");
     if (action === "register-screen") return navigate("register");
     if (action === "member-login-screen") return navigate("login");

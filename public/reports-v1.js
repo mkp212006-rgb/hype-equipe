@@ -2,7 +2,9 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
-  const API_URL = "https://hype-equipe-production.up.railway.app";
+  const runtime = window.TW_STORE_CONFIG || {};
+  const API_URL = runtime.apiBaseUrl || "https://tw-store-application.up.railway.app";
+  const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
   const WHATSAPP_URL = "https://wa.me/5512983087742";
   const app = document.getElementById("app");
   let reportOpen = false;
@@ -49,11 +51,13 @@
     const current = session();
     if (!current?.token || !["member", "admin"].includes(current.role)) throw new Error("Entre na sua conta para visualizar os relatórios.");
     const controller = new AbortController();
-    const timeout = setTimeout(function () { controller.abort(); }, 25000);
+    const timeout = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(API_URL + path, {
         headers: { Accept: "application/json", Authorization: "Bearer " + current.token },
         signal: controller.signal,
+        cache: "no-store",
+        credentials: "same-origin",
       });
       const raw = await response.text();
       let payload = {};
@@ -221,13 +225,18 @@
     settingsButton.click();
   }
 
-  const observer = new MutationObserver(function () {
+  function syncReportEntries() {
     injectMemberEntry();
     injectAdminSettingsEntry();
     restoreMemberSettings();
-  });
+  }
+
+  function scheduleReportEntries() {
+    if (typeof runtime.schedule === "function") return runtime.schedule("reports-v1", syncReportEntries);
+    setTimeout(syncReportEntries, 16);
+  }
+
+  const observer = new MutationObserver(scheduleReportEntries);
   if (app) observer.observe(app, { childList: true, subtree: true });
-  injectMemberEntry();
-  injectAdminSettingsEntry();
-  restoreMemberSettings();
+  syncReportEntries();
 })();

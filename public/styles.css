@@ -746,6 +746,31 @@ select.field-control {
   margin: 0 auto 18px;
 }
 
+.loading-page small {
+  display: block;
+  max-width: 310px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.connection-error {
+  margin-top: 32px;
+  text-align: center;
+}
+
+.connection-error h1 {
+  margin: 12px 0 8px;
+  font-size: 22px;
+}
+
+.connection-error p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .toast-region {
   position: fixed;
   z-index: 100;

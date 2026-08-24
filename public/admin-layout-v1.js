@@ -3,7 +3,9 @@
 
   const SESSION_KEY = "tw-store.session.v3";
   const ADMIN_SCREEN_KEY = "tw-store.admin.screen.v1";
-  const API_URL = "https://hype-equipe-production.up.railway.app";
+  const runtime = window.TW_STORE_CONFIG || {};
+  const API_URL = runtime.apiBaseUrl || "https://tw-store-application.up.railway.app";
+  const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
   const app = document.getElementById("app");
 
   let catalogMarkup = "";
@@ -62,11 +64,13 @@
     const current = session();
     if (!current || current.role !== "admin" || !current.token) throw new Error("Sessão administrativa inválida.");
     const controller = new AbortController();
-    const timer = setTimeout(function () { controller.abort(); }, 22000);
+    const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(API_URL + path, {
         headers: { Accept: "application/json", Authorization: "Bearer " + current.token },
         signal: controller.signal,
+        cache: "no-store",
+        credentials: "same-origin",
       });
       const raw = await response.text();
       let data = {};
@@ -220,7 +224,8 @@
     setScreen("catalog");
     if (!catalogMarkup) {
       if (!captureCatalog()) {
-        window.location.reload();
+        setScreen("home");
+        renderHome();
         return;
       }
     }
@@ -354,11 +359,14 @@
     if (ticket && isAdmin()) setScreen("support");
   }, true);
 
-  const observer = new MutationObserver(function () {
+  function scheduleAdminRoute() {
     if (!isAdmin() || applying) return;
-    queueMicrotask(routeAfterBaseRender);
-  });
+    if (typeof runtime.schedule === "function") return runtime.schedule("admin-layout-v1", routeAfterBaseRender);
+    setTimeout(routeAfterBaseRender, 16);
+  }
+
+  const observer = new MutationObserver(scheduleAdminRoute);
 
   if (app) observer.observe(app, { childList: true, subtree: true });
-  setTimeout(routeAfterBaseRender, 0);
+  scheduleAdminRoute();
 })();

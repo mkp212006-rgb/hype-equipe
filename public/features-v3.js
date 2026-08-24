@@ -2,7 +2,9 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
-  const API_URL = "https://hype-equipe-production.up.railway.app";
+  const runtime = window.TW_STORE_CONFIG || {};
+  const API_URL = runtime.apiBaseUrl || "https://tw-store-application.up.railway.app";
+  const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
   const WHATSAPP_URL = "https://wa.me/5512983087742";
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
@@ -53,7 +55,7 @@
     const opts = options || {};
     const current = session();
     const controller = new AbortController();
-    const timer = setTimeout(function () { controller.abort(); }, 25000);
+    const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(API_URL + path, {
         method: opts.method || "GET",
@@ -64,6 +66,8 @@
         },
         body: opts.body ? JSON.stringify(opts.body) : undefined,
         signal: controller.signal,
+        cache: "no-store",
+        credentials: "same-origin",
       });
       const raw = await response.text();
       let data = {};
@@ -325,35 +329,6 @@
   }
 
   document.addEventListener("submit", async function (event) {
-    const loginForm = event.target.closest('form[data-form="member-login"]');
-    if (loginForm) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const button = loginForm.querySelector('button[type="submit"]');
-      const original = button ? button.innerHTML : "";
-      if (button) { button.disabled = true; button.textContent = "Entrando…"; }
-      try {
-        const values = Object.fromEntries(new FormData(loginForm).entries());
-        const username = String(values.username || "").trim();
-        const response = await api("/auth/login", { method: "POST", public: true, body: { username: username, password: values.password } });
-        const user = response.user || response.account || {};
-        const nextSession = {
-          ...response,
-          token: response.token || response.accessToken,
-          member: response.member || user.name || user.username || username,
-          username: response.username || user.username || username,
-          role: response.role || user.role || "member",
-        };
-        if (!nextSession.token) throw new Error("O servidor não retornou uma sessão válida.");
-        saveSession(nextSession);
-        window.location.reload();
-      } catch (error) {
-        toast(error.message, true);
-        if (button) { button.disabled = false; button.innerHTML = original; }
-      }
-      return;
-    }
-
     const featureForm = event.target.closest("[data-feature-form]");
     if (!featureForm) return;
     event.preventDefault();
@@ -457,15 +432,21 @@
     }
   }, true);
 
-  const observer = new MutationObserver(function () {
+  function syncFeatures() {
     hideAdminSelector();
     applyAvatars();
     injectAdminSupport();
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
 
-  hideAdminSelector();
+  function scheduleFeatures() {
+    if (typeof runtime.schedule === "function") return runtime.schedule("features-v3", syncFeatures);
+    setTimeout(syncFeatures, 16);
+  }
+
+  const observer = new MutationObserver(scheduleFeatures);
+  if (app) observer.observe(app, { childList: true, subtree: true });
+
+  syncFeatures();
   const current = session();
   if (current && current.role === "member") loadProfile();
-  if (current && current.role === "admin") injectAdminSupport();
 })();

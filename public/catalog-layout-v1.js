@@ -2,7 +2,9 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
-  const API_URL = "https://hype-equipe-production.up.railway.app";
+  const runtime = window.TW_STORE_CONFIG || {};
+  const API_URL = runtime.apiBaseUrl || "https://tw-store-application.up.railway.app";
+  const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
   const app = document.getElementById("app");
   if (!app) return;
 
@@ -105,14 +107,26 @@
   async function api(path) {
     const current = session();
     if (!current || !current.token) throw new Error("Sessão inválida.");
-    const response = await fetch(API_URL + path, {
-      headers: { Accept: "application/json", Authorization: "Bearer " + current.token },
-    });
-    const raw = await response.text();
-    let data = {};
-    try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
-    if (!response.ok) throw new Error(data.error || "Não foi possível carregar o catálogo.");
-    return data;
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(API_URL + path, {
+        headers: { Accept: "application/json", Authorization: "Bearer " + current.token },
+        signal: controller.signal,
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      const raw = await response.text();
+      let data = {};
+      try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
+      if (!response.ok) throw new Error(data.error || "Não foi possível carregar o catálogo.");
+      return data;
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("O servidor demorou demais para responder.");
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function memberServices() {
@@ -410,7 +424,8 @@
   function scheduleSync() {
     if (syncScheduled) return;
     syncScheduled = true;
-    setTimeout(sync, 0);
+    if (typeof runtime.schedule === "function") return runtime.schedule("catalog-layout-v1", sync);
+    setTimeout(sync, 16);
   }
 
   const observer = new MutationObserver(scheduleSync);

@@ -2,7 +2,9 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
-  const API_URL = "https://hype-equipe-production.up.railway.app";
+  const runtime = window.TW_STORE_CONFIG || {};
+  const API_URL = runtime.apiBaseUrl || "https://tw-store-application.up.railway.app";
+  const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
   const app = document.getElementById("app");
   const toastRegion = document.getElementById("toast-region");
   const state = { memberLoading: false, adminLoading: false, products: [], orders: [], providerStatus: null };
@@ -43,7 +45,7 @@
     if (!current || !current.token) throw new Error("Sua sessão expirou. Entre novamente.");
     const opts = options || {};
     const controller = new AbortController();
-    const timer = setTimeout(function () { controller.abort(); }, 30000);
+    const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(API_URL + path, {
         method: opts.method || "GET",
@@ -54,6 +56,8 @@
         },
         body: opts.body ? JSON.stringify(opts.body) : undefined,
         signal: controller.signal,
+        cache: "no-store",
+        credentials: "same-origin",
       });
       const raw = await response.text();
       let data = {};
@@ -689,15 +693,20 @@
     }
   }, true);
 
-  const observer = new MutationObserver(function () {
+  function syncVpnFeatures() {
     enhanceAdminAddForm();
     injectMemberProducts();
     updateMemberVpnSelection();
     injectMemberHistory();
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
 
-  enhanceAdminAddForm();
-  injectMemberProducts();
-  injectMemberHistory();
+  function scheduleVpnFeatures() {
+    if (typeof runtime.schedule === "function") return runtime.schedule("vpn-v1", syncVpnFeatures);
+    setTimeout(syncVpnFeatures, 16);
+  }
+
+  const observer = new MutationObserver(scheduleVpnFeatures);
+  if (app) observer.observe(app, { childList: true, subtree: true });
+
+  syncVpnFeatures();
 })();
