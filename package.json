@@ -1,9 +1,9 @@
 {
   "name": "hype-equipe",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "private": true,
   "type": "module",
-  "description": "Tw Store para Railway com inicialização estável, API same-origin, contas, carteira BRL, Mercado Pago, categorias, SMM, VPN e relatórios.",
+  "description": "Tw Store para Railway com vitrine estilo LMT em vermelho, API same-origin, contas, carteira BRL, Mercado Pago, categorias, SMM, VPN e relatórios.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

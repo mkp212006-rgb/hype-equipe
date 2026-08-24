@@ -1,4 +1,4 @@
-# Tw Store 2.6.0 — Railway estável
+# Tw Store 2.8.0 — vitrine vermelha e Railway estável
 
 Site e backend do aplicativo Tw Store, preparados para rodar juntos no endereço público do próprio Railway.
 
@@ -93,3 +93,7 @@ Ao iniciar, a migration cria `service_categories` e adiciona `custom_name`, `des
 ## Atualização 2.6 — estabilidade
 
 O servidor agora importa todos os módulos diretamente em `src/server.js`. O frontend usa `window.location.origin` quando aberto pelo Railway, evita cache antigo de JavaScript/CSS e agrupa os observadores visuais para executar no máximo uma vez por quadro.
+
+## Atualização 2.8 — nova vitrine
+
+A página inicial do cliente ganhou a sequência visual da referência LMT Store adaptada à identidade vermelha da Tw Store: faixa promocional, cabeçalho com busca, hero, três produtos em destaque, catálogos expansíveis, explicação de compra, provas de confiança e rodapé. Produtos, preços, categorias e destaques continuam sendo carregados do PostgreSQL e administrados pelo painel existente.
