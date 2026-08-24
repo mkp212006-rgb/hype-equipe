@@ -129,3 +129,22 @@ test("runtime configuration prefers the current origin and coalesces visual work
   frames[0]();
   assert.equal(calls, 1);
 });
+
+test("serves the storefront layout assets from the same Railway origin", async (context) => {
+  const server = await startTestServer();
+  context.after(server.close);
+
+  const home = await fetch(`${server.baseUrl}/`);
+  const html = await home.text();
+  assert.match(html, /storefront-v2\.css/);
+  assert.match(html, /storefront-v2\.js/);
+
+  const [stylesheet, script] = await Promise.all([
+    fetch(`${server.baseUrl}/storefront-v2.css`),
+    fetch(`${server.baseUrl}/storefront-v2.js`),
+  ]);
+  assert.equal(stylesheet.status, 200);
+  assert.equal(script.status, 200);
+  assert.match(await stylesheet.text(), /store-product-grid/);
+  assert.match(await script.text(), /\/api\/storefront/);
+});
