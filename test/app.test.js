@@ -145,6 +145,12 @@ test("serves the storefront layout assets from the same Railway origin", async (
   ]);
   assert.equal(stylesheet.status, 200);
   assert.equal(script.status, 200);
-  assert.match(await stylesheet.text(), /store-product-grid/);
-  assert.match(await script.text(), /\/api\/storefront/);
+  const stylesheetSource = await stylesheet.text();
+  const scriptSource = await script.text();
+  assert.match(stylesheetSource, /store-product-grid/);
+  assert.match(stylesheetSource, /store-reference-header/);
+  assert.match(stylesheetSource, /store-feature-grid/);
+  assert.match(scriptSource, /\/api\/storefront/);
+  assert.match(scriptSource, /data-store-search/);
+  assert.match(scriptSource, /CLIQUE AQUI E GARANTA OFERTAS EXCLUSIVAS/);
 });
