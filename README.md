@@ -1,4 +1,4 @@
-# Tw Store 2.8.0 — vitrine vermelha e Railway estável
+# Tw Store 2.9.0 — vitrine AMOLED e entrega de assinaturas
 
 Site e backend do aplicativo Tw Store, preparados para rodar juntos no endereço público do próprio Railway.
 
@@ -20,6 +20,10 @@ Site e backend do aplicativo Tw Store, preparados para rodar juntos no endereço
 - Frontend usando a mesma origem do Railway, sem domínio antigo gravado nos módulos.
 - Carregamentos paralelos com limite de 15 segundos e opção de tentar novamente.
 - Inicialização direta, sem gerar ou reescrever o servidor durante o deploy.
+- Vitrine mobile AMOLED reproduzida do vídeo de referência, com a identidade Tw Store em vermelho.
+- Compra de assinatura debitada da carteira após o cliente informar o e-mail de entrega.
+- Aba **Entregas** no painel administrativo para abrir o e-mail, inserir os dados e confirmar o envio.
+- Estorno administrativo seguro para pedidos de assinatura que não puderem ser atendidos.
 
 ## Cálculo de pedidos
 
@@ -65,6 +69,8 @@ Cadastre o evento de pagamentos no painel do Mercado Pago e salve a assinatura s
 - `GET /api/services`
 - `GET /api/orders`
 - `POST /api/orders`
+- `GET /api/subscription-orders`
+- `POST /api/subscription-orders`
 - `GET /api/wallet`
 - `POST /api/wallet/deposits`
 - `POST /webhooks/mercado-pago`
@@ -78,6 +84,9 @@ Cadastre o evento de pagamentos no painel do Mercado Pago e salve a assinatura s
 - `POST /admin/services/:serviceId/sync`
 - `DELETE /admin/services/:serviceId`
 - `GET /admin/summary`
+- `GET /admin/subscription-orders`
+- `PATCH /admin/subscription-orders/:id/fulfill`
+- `PATCH /admin/subscription-orders/:id/refund`
 
 ## Deploy Railway
 
@@ -97,3 +106,9 @@ O servidor agora importa todos os módulos diretamente em `src/server.js`. O fro
 ## Atualização 2.8 — nova vitrine
 
 A página inicial do cliente ganhou a sequência visual da referência LMT Store adaptada à identidade vermelha da Tw Store: faixa promocional, cabeçalho com busca, hero, três produtos em destaque, catálogos expansíveis, explicação de compra, provas de confiança e rodapé. Produtos, preços, categorias e destaques continuam sendo carregados do PostgreSQL e administrados pelo painel existente.
+
+## Atualização 2.9 — vídeo de referência e assinaturas
+
+A vitrine foi refeita usando o vídeo enviado como referência principal: preto AMOLED, faixa promocional, cabeçalho compacto com o ícone Tw Store, avaliação, boas-vindas, mosaico de banners, três destaques grandes e cartões duplos com **Ver mais**. Os detalhes azuis da interface foram convertidos para vermelho.
+
+Ao comprar uma assinatura, o cliente informa o e-mail, o backend confirma o produto e o preço no banco, debita a carteira em uma transação e cria uma entrega pendente. A nova aba **Entregas** permite ao administrador preparar os dados, abrir o aplicativo de e-mail e confirmar o envio. Os dados de acesso são criptografados no PostgreSQL.

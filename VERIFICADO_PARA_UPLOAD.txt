@@ -1,4 +1,4 @@
-TW STORE 2.8.0 — PACOTE COMPLETO PARA UPLOAD
+TW STORE 2.9.0 — PACOTE COMPLETO PARA UPLOAD
 
 Repositório conferido: mkp212006-rgb/hype-equipe (branch main)
 Identidade Android nova: com.twstore.mobile
@@ -8,12 +8,19 @@ Servidor padrão: https://tw-store-application.up.railway.app
 Este ZIP contém os arquivos de código que precisam ser adicionados/substituídos no GitHub.
 Não é necessário editar o conteúdo desses arquivos antes do upload.
 
-NOVA VITRINE 2.8:
-- layout da página inicial reorganizado na sequência visual da LMT Store;
-- identidade azul substituída pelo vermelho da Tw Store;
-- faixa promocional, busca, hero, três destaques e catálogos expansíveis;
-- blocos de funcionamento, confiança, rodapé e navegação responsiva;
-- produtos, preços, fotos, categorias e destaques continuam vindo do painel e do PostgreSQL.
+NOVA VITRINE 2.9:
+- layout refeito quadro a quadro a partir do vídeo enviado;
+- fundo preto AMOLED e detalhes azuis substituídos por vermelho;
+- ícone e nome Tw Store no cabeçalho;
+- avaliação, boas-vindas, mosaico, três destaques grandes e cartões duplos;
+- busca, produtos, preços, fotos, categorias e destaques continuam dinâmicos.
+
+FLUXO DE ASSINATURAS:
+- cliente informa o e-mail e finaliza usando o saldo da carteira;
+- pedido entra como pendente na nova aba Entregas do painel admin;
+- administrador preenche os dados, abre o e-mail e confirma o envio;
+- dados de acesso são criptografados no PostgreSQL;
+- pedido sem atendimento pode ser cancelado com estorno para a carteira.
 
 CORREÇÕES DE ESTABILIDADE:
 - site e API usam o mesmo endereço do Railway;
