@@ -2,7 +2,6 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
-  const OPEN_SERVICE_KEY = "tw-store.storefront.service.v1";
   const runtime = window.TW_STORE_CONFIG || {};
   const API_URL = runtime.apiBaseUrl || window.location.origin;
   const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
@@ -11,9 +10,14 @@
   let memberRequest = null;
   let adminRequest = null;
   let syncQueued = false;
+  let memberProducts = [];
 
   function session() {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; }
+  }
+
+  function saveSession(value) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(value));
   }
 
   function escapeHtml(value) {
@@ -26,6 +30,15 @@
     const number = Number(value);
     if (!Number.isFinite(number)) return "Consulte";
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(number);
+  }
+
+  function initials(value) {
+    return String(value || "T").trim().charAt(0).toUpperCase() || "T";
+  }
+
+  function dateTime(value) {
+    const date = new Date(value || 0);
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("pt-BR");
   }
 
   function toast(message, error) {
@@ -89,15 +102,25 @@
   function storeIcon(name) {
     const paths = {
       arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+      back: '<path d="m15 18-6-6 6-6"/>',
+      box: '<path d="m21 8-9-5-9 5 9 5Z"/><path d="m3 8 9 5 9-5v8l-9 5-9-5Z"/><path d="M12 13v8"/>',
+      camera: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4Z"/><circle cx="12" cy="13" r="3"/>',
       cart: '<circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6"/>',
       check: '<path d="M20 6 9 17l-5-5"/>',
       close: '<path d="m6 6 12 12M18 6 6 18"/>',
       discord: '<path d="M8 8.5a9 9 0 0 1 8 0l1.5 7a10 10 0 0 1-3 1.5l-.7-1.1a7 7 0 0 0 1.2-.6M9 15.3a7 7 0 0 0 6 0M6.5 15.5l1.5-7M9.5 12.5h.01M14.5 12.5h.01"/>',
       headset: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19c0 1.1-.9 2-2 2h-3"/><rect x="3" y="13" width="4" height="6" rx="2"/><rect x="17" y="13" width="4" height="6" rx="2"/>',
       history: '<circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2M4 5v4h4"/>',
+      info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+      link: '<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',
+      lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+      logout: '<path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/>',
+      more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/>',
+      send: '<path d="m3 11 18-8-8 18-2-8Z"/><path d="m11 13 4-4"/>',
       shield: '<path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6Z"/><path d="m9 12 2 2 4-5"/>',
       star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
+      ticket: '<path d="M4 5h16v5a2 2 0 0 0 0 4v5H4v-5a2 2 0 0 0 0-4Z"/><path d="M9 8h6M9 12h4"/>',
       user: '<circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
       wallet: '<path d="M4 6h14a2 2 0 0 1 2 2v10H4a2 2 0 0 1-2-2V6a3 3 0 0 1 3-3h12"/><path d="M16 11h4v4h-4a2 2 0 1 1 0-4Z"/>',
       zap: '<path d="m13 2-9 12h7l-1 8 9-12h-7Z"/>',
@@ -186,10 +209,27 @@
     return '<div class="store-dialog-backdrop" data-store-orders-modal hidden><section class="store-dialog store-orders-dialog" role="dialog" aria-modal="true" aria-label="Pedidos de assinatura"><div class="store-dialog-heading"><div><small>MINHA CONTA</small><h2>Assinaturas</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div data-store-orders-list><div class="store-dialog-loading"><span class="spinner"></span> Carregando pedidos…</div></div></section></div>';
   }
 
+  function moreMenu(current) {
+    return '<div class="store-more-wrap"><button type="button" class="store-icon-button" data-store-toggle-more aria-label="Mais opções" aria-expanded="false">' + storeIcon("more") + '</button><div class="store-more-menu" data-store-more-menu role="menu" hidden><div class="store-more-account"><span>' + escapeHtml(initials(current.member || current.username)) + '</span><div><b>' + escapeHtml(current.member || "Cliente") + '</b><small>@' + escapeHtml(current.username || "cliente") + '</small></div></div><button type="button" data-store-open-profile role="menuitem">' + storeIcon("user") + '<span><b>Perfil</b><small>Conta, foto e senha</small></span></button><button type="button" data-store-open-orders role="menuitem">' + storeIcon("cart") + '<span><b>Minhas assinaturas</b><small>Pedidos e dados recebidos</small></span></button><button type="button" data-store-open-tickets role="menuitem">' + storeIcon("ticket") + '<span><b>Meus tickets</b><small>Acompanhar atendimentos</small></span></button><button type="button" data-store-open-support role="menuitem">' + storeIcon("headset") + '<span><b>Suporte</b><small>Criar um novo ticket</small></span></button><button type="button" class="store-more-logout" data-store-logout role="menuitem">' + storeIcon("logout") + '<span><b>Sair</b><small>Desconectar da conta</small></span></button></div></div>';
+  }
+
+  function profileModal() {
+    return '<div class="store-dialog-backdrop" data-store-profile-modal hidden><section class="store-dialog store-profile-dialog" role="dialog" aria-modal="true" aria-label="Perfil"><div data-store-profile-content><div class="store-dialog-loading"><span class="spinner"></span> Carregando perfil…</div></div></section></div>';
+  }
+
+  function supportModal() {
+    return '<div class="store-dialog-backdrop" data-store-support-modal hidden><section class="store-dialog store-support-dialog" role="dialog" aria-modal="true" aria-label="Suporte"><div data-store-support-content></div></section></div>';
+  }
+
+  function smmOrderModal() {
+    return '<div class="store-dialog-backdrop" data-store-smm-modal hidden><section class="store-dialog store-smm-detail-dialog" role="dialog" aria-modal="true" aria-label="Fazer pedido SMM"><div data-store-smm-content></div></section></div>';
+  }
+
   function renderMemberStorefront(main, payload) {
     if (!document.body.contains(main)) return;
     const catalog = normalizedCatalog(payload);
     const current = session() || {};
+    memberProducts = catalog.products;
     const balance = main.querySelector(".balance-value")?.textContent || "Minha carteira";
     const featured = catalog.products.filter(function (product) { return product.featured; }).slice(0, 3);
     const spotlight = featured.length ? featured : catalog.products.slice(0, 3);
@@ -212,11 +252,11 @@
 
     main.innerHTML =
       '<a class="store-promo" href="#store-catalog-start" data-store-scroll="store-catalog-start">CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS! ❤️</a>' +
-      '<header class="store-reference-header"><div class="store-header-inner"><button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-nav="settings" aria-label="Suporte">' + storeIcon("headset") + '</button><button type="button" class="store-icon-button" data-nav="settings" aria-label="Minha conta">' + storeIcon("user") + '</button><button type="button" class="store-icon-button store-cart-button" data-store-open-orders aria-label="Minhas assinaturas">' + storeIcon("cart") + "</button></div></div></header>" +
-      '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-nav="settings">' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-nav="settings">' + storeIcon("headset") + ' Suporte</button></div></div><div class="store-mosaic">' + mosaic.map(mosaicTile).join("") + "</div></section>" +
+      '<header class="store-reference-header"><div class="store-header-inner"><button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-store-open-support aria-label="Criar ticket de suporte">' + storeIcon("headset") + '</button><button type="button" class="store-icon-button" data-store-open-profile aria-label="Abrir perfil">' + storeIcon("user") + '</button><button type="button" class="store-icon-button store-cart-button" data-store-open-orders aria-label="Minhas assinaturas">' + storeIcon("cart") + '</button>' + moreMenu(current) + "</div></div></header>" +
+      '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-community>' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-store-open-support>' + storeIcon("headset") + ' Suporte</button></div></div><div class="store-mosaic">' + mosaic.map(mosaicTile).join("") + "</div></section>" +
       featuredSection + catalogSection("Assinaturas", subscriptions, "subscriptions") + categorySections +
-      '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-nav="wallet">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
-      searchModal(catalog.products) + purchaseModal() + ordersModal();
+      '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-store-open-profile>' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
+      searchModal(catalog.products) + purchaseModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal();
   }
 
   async function enhanceMemberHome(main) {
@@ -418,33 +458,184 @@
     }
   }
 
-  function queueServiceSelection(id, category) {
-    sessionStorage.setItem(OPEN_SERVICE_KEY, JSON.stringify({ id: String(id), category: String(category || "") }));
-    const nav = document.querySelector('[data-nav="new-order"]');
-    if (nav) nav.click();
-    setTimeout(applyQueuedService, 30);
+  function closeMoreMenu() {
+    const menu = document.querySelector("[data-store-more-menu]");
+    const trigger = document.querySelector("[data-store-toggle-more]");
+    if (menu) menu.hidden = true;
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
   }
 
-  function applyQueuedService() {
-    let target;
-    try { target = JSON.parse(sessionStorage.getItem(OPEN_SERVICE_KEY) || "null"); } catch { target = null; }
-    if (!target) return;
-    const form = document.querySelector('[data-form="new-order"]');
-    const category = form && form.querySelector("[data-order-category]");
-    const service = form && form.querySelector("[data-order-service]");
-    if (!form || !category || !service) return;
-    if (target.category && String(category.value) !== target.category) {
-      category.value = target.category;
-      category.dispatchEvent(new Event("change", { bubbles: true }));
+  function toggleMoreMenu(trigger) {
+    const menu = trigger?.closest(".store-more-wrap")?.querySelector("[data-store-more-menu]");
+    if (!menu) return;
+    const opening = menu.hidden;
+    closeMoreMenu();
+    menu.hidden = !opening;
+    trigger.setAttribute("aria-expanded", opening ? "true" : "false");
+  }
+
+  function dialogHeading(kicker, title, backMode) {
+    return '<div class="store-dialog-heading store-account-heading"><div class="store-dialog-title-row">' + (backMode ? '<button type="button" class="store-dialog-back" data-store-support-mode="' + escapeHtml(backMode) + '" aria-label="Voltar">' + storeIcon("back") + '</button>' : "") + '<div><small>' + escapeHtml(kicker) + '</small><h2>' + escapeHtml(title) + '</h2></div></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div>';
+  }
+
+  function profileAvatar(profile) {
+    return profile.profilePhoto
+      ? '<img src="' + escapeHtml(profile.profilePhoto) + '" alt="Foto de perfil">'
+      : '<span>' + escapeHtml(initials(profile.name || profile.username)) + '</span>';
+  }
+
+  async function openProfile() {
+    closeMoreMenu();
+    const modal = document.querySelector("[data-store-profile-modal]");
+    const host = modal?.querySelector("[data-store-profile-content]");
+    if (!modal || !host) return;
+    host.innerHTML = dialogHeading("MINHA CONTA", "Perfil") + '<div class="store-dialog-loading"><span class="spinner"></span> Carregando perfil…</div>';
+    openDialog(modal);
+    const results = await Promise.allSettled([api("/api/account"), api("/api/wallet")]);
+    if (!document.body.contains(host)) return;
+    if (results[0].status !== "fulfilled") {
+      host.innerHTML = dialogHeading("MINHA CONTA", "Perfil") + '<div class="store-dialog-empty">' + storeIcon("user") + '<h3>Não foi possível carregar</h3><p>' + escapeHtml(results[0].reason.message) + '</p></div>';
+      return;
     }
-    setTimeout(function () {
-      const option = Array.from(service.options).find(function (item) { return String(item.value) === String(target.id); });
-      if (!option) return;
-      service.value = String(target.id);
-      service.dispatchEvent(new Event("change", { bubbles: true }));
-      sessionStorage.removeItem(OPEN_SERVICE_KEY);
-      form.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 40);
+    const profile = results[0].value;
+    const wallet = results[1].status === "fulfilled" ? results[1].value : null;
+    host.innerHTML = dialogHeading("MINHA CONTA", "Perfil") +
+      '<section class="store-profile-card"><div class="store-profile-avatar" data-store-profile-avatar>' + profileAvatar(profile) + '</div><div class="store-profile-identity"><h3>' + escapeHtml(profile.name) + '</h3><span>@' + escapeHtml(profile.username) + '</span><small>Cliente Tw Store</small></div><button type="button" class="store-profile-photo-button" data-store-choose-profile-photo>' + storeIcon("camera") + '<span>Alterar foto</span></button><input type="file" accept="image/jpeg,image/png,image/webp" data-store-profile-photo-input hidden></section>' +
+      '<section class="store-profile-wallet"><div>' + storeIcon("wallet") + '<span><small>SALDO DA CARTEIRA</small><strong>' + (wallet ? money(wallet.balance) : "Indisponível") + '</strong></span></div><small>Usado nas assinaturas e pedidos SMM.</small></section>' +
+      '<details class="store-profile-password"><summary>' + storeIcon("lock") + '<span><b>Alterar senha</b><small>Proteja o acesso à sua conta</small></span>' + storeIcon("arrow") + '</summary><form data-store-profile-password><label><span>Senha atual</span><input name="currentPassword" type="password" autocomplete="current-password" maxlength="256" required></label><label><span>Nova senha</span><input name="newPassword" type="password" minlength="6" maxlength="256" autocomplete="new-password" required></label><label><span>Confirmar nova senha</span><input name="confirmPassword" type="password" minlength="6" maxlength="256" autocomplete="new-password" required></label><button type="submit" class="store-purchase-submit">' + storeIcon("check") + '<span>Salvar nova senha</span></button></form></details>' +
+      '<button type="button" class="store-profile-logout" data-store-logout>' + storeIcon("logout") + '<span>Sair da conta</span></button>';
+  }
+
+  function ticketStatus(value) {
+    const status = String(value || "open");
+    if (status === "answered") return { label: "Respondido", className: "answered" };
+    if (status === "closed") return { label: "Encerrado", className: "closed" };
+    return { label: "Aguardando suporte", className: "open" };
+  }
+
+  function supportNewMarkup() {
+    return dialogHeading("ATENDIMENTO", "Criar ticket") + '<div class="store-support-tabs"><button type="button" class="active" data-store-support-mode="new">Novo ticket</button><button type="button" data-store-support-mode="tickets">Meus tickets</button></div><form class="store-support-form" data-store-new-ticket><label><span>Assunto</span><input name="subject" minlength="3" maxlength="120" placeholder="Ex.: Dúvida sobre meu pedido" required></label><label><span>Mensagem</span><textarea name="message" minlength="2" maxlength="4000" placeholder="Explique o que aconteceu com detalhes…" required></textarea></label><div class="store-support-notice">' + storeIcon("headset") + '<p><b>Atendimento dentro da Tw Store</b><small>Você poderá acompanhar a resposta em Meus tickets.</small></p></div><button type="submit" class="store-purchase-submit">' + storeIcon("send") + '<span>Enviar ticket</span></button></form>';
+  }
+
+  function ticketListCard(ticket) {
+    const status = ticketStatus(ticket.status);
+    return '<button type="button" class="store-ticket-card" data-store-ticket-view="' + escapeHtml(ticket.id) + '"><div><span class="store-ticket-status ' + status.className + '">' + status.label + '</span><h3>' + escapeHtml(ticket.subject) + '</h3><p>' + escapeHtml(ticket.lastMessage || "Sem mensagens") + '</p></div><footer><small>#' + escapeHtml(String(ticket.id || "").slice(0, 8).toUpperCase()) + '</small><time>' + escapeHtml(dateTime(ticket.lastMessageAt || ticket.updatedAt)) + '</time>' + storeIcon("arrow") + '</footer></button>';
+  }
+
+  async function renderTicketList() {
+    const host = document.querySelector("[data-store-support-content]");
+    if (!host) return;
+    host.innerHTML = dialogHeading("ATENDIMENTO", "Meus tickets") + '<div class="store-support-tabs"><button type="button" data-store-support-mode="new">Novo ticket</button><button type="button" class="active" data-store-support-mode="tickets">Meus tickets</button></div><div class="store-dialog-loading"><span class="spinner"></span> Carregando tickets…</div>';
+    try {
+      const tickets = await api("/api/tickets");
+      if (!document.body.contains(host)) return;
+      host.innerHTML = dialogHeading("ATENDIMENTO", "Meus tickets") + '<div class="store-support-tabs"><button type="button" data-store-support-mode="new">Novo ticket</button><button type="button" class="active" data-store-support-mode="tickets">Meus tickets</button></div>' + (Array.isArray(tickets) && tickets.length ? '<div class="store-ticket-list">' + tickets.map(ticketListCard).join("") + '</div>' : '<div class="store-dialog-empty">' + storeIcon("ticket") + '<h3>Nenhum ticket ainda</h3><p>Quando precisar, crie um atendimento sem sair da vitrine.</p><button type="button" class="store-inline-action" data-store-support-mode="new">Criar primeiro ticket</button></div>');
+    } catch (error) {
+      host.innerHTML = dialogHeading("ATENDIMENTO", "Meus tickets") + '<div class="store-dialog-empty"><h3>Não foi possível carregar</h3><p>' + escapeHtml(error.message) + '</p></div>';
+    }
+  }
+
+  async function renderTicketDetail(ticketId) {
+    const host = document.querySelector("[data-store-support-content]");
+    if (!host) return;
+    host.innerHTML = dialogHeading("TICKET", "Carregando…", "tickets") + '<div class="store-dialog-loading"><span class="spinner"></span> Abrindo conversa…</div>';
+    try {
+      const ticket = await api("/api/tickets/" + encodeURIComponent(ticketId));
+      if (!document.body.contains(host)) return;
+      const status = ticketStatus(ticket.status);
+      const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
+      host.innerHTML = dialogHeading("TICKET #" + String(ticket.id || "").slice(0, 8).toUpperCase(), ticket.subject, "tickets") + '<div class="store-ticket-detail-status"><span class="store-ticket-status ' + status.className + '">' + status.label + '</span><small>Atualizado em ' + escapeHtml(dateTime(ticket.updatedAt)) + '</small></div><section class="store-ticket-thread">' + messages.map(function (message) { const mine = message.senderRole === "member"; return '<article class="' + (mine ? "mine" : "support") + '"><b>' + (mine ? "Você" : "Suporte Tw Store") + '</b><p>' + escapeHtml(message.message) + '</p><time>' + escapeHtml(dateTime(message.createdAt)) + '</time></article>'; }).join("") + '</section>' + (ticket.status !== "closed" ? '<form class="store-ticket-reply" data-store-ticket-reply data-ticket-id="' + escapeHtml(ticket.id) + '"><textarea name="message" maxlength="4000" placeholder="Digite sua resposta…" required></textarea><button type="submit" aria-label="Enviar resposta">' + storeIcon("send") + '</button></form><button type="button" class="store-ticket-close" data-store-ticket-close="' + escapeHtml(ticket.id) + '">Encerrar ticket</button>' : '<div class="store-ticket-closed-note">Este atendimento está encerrado.</div>');
+    } catch (error) {
+      host.innerHTML = dialogHeading("TICKET", "Atendimento", "tickets") + '<div class="store-dialog-empty"><h3>Não foi possível abrir</h3><p>' + escapeHtml(error.message) + '</p></div>';
+    }
+  }
+
+  function openSupport(mode) {
+    closeMoreMenu();
+    const modal = document.querySelector("[data-store-support-modal]");
+    const host = modal?.querySelector("[data-store-support-content]");
+    if (!modal || !host) return;
+    openDialog(modal);
+    if (mode === "tickets") renderTicketList();
+    else host.innerHTML = supportNewMarkup();
+  }
+
+  function multiline(value) {
+    return escapeHtml(String(value || "")).replace(/\r?\n/g, "<br>");
+  }
+
+  function updateSmmCharge(input) {
+    const form = input?.closest("[data-store-smm-order]");
+    if (!form) return;
+    const quantity = Number(input.value);
+    const rate = Number(form.dataset.rate);
+    const charge = Number.isFinite(quantity) && Number.isFinite(rate) ? Math.max(.01, (rate * quantity) / 1000) : NaN;
+    const preview = form.querySelector("[data-store-smm-charge]");
+    if (preview) preview.textContent = Number.isFinite(charge) ? money(charge) : "—";
+  }
+
+  function openSmmProduct(target) {
+    const product = memberProducts.find(function (item) { return item.kind === "smm" && String(item.sourceId) === String(target.dataset.storeSmm); });
+    const modal = document.querySelector("[data-store-smm-modal]");
+    const host = modal?.querySelector("[data-store-smm-content]");
+    if (!product || !modal || !host) return toast("Este serviço não está mais disponível.", true);
+    const previous = target.closest(".store-dialog-backdrop");
+    if (previous && previous !== modal) closeDialog(previous);
+    const description = product.description || "O administrador ainda não adicionou uma descrição para este serviço.";
+    host.innerHTML = dialogHeading("SERVIÇO SMM", product.name) + '<div class="store-smm-product-hero">' + productImage(product, "store-smm-detail-image") + (product.badge ? '<span>' + escapeHtml(product.badge) + '</span>' : "") + '</div><section class="store-smm-product-summary"><div><small>' + escapeHtml(product.categoryName || "Serviço SMM") + '</small><h3>' + escapeHtml(product.name) + '</h3><div class="store-smm-badges"><span>' + storeIcon("box") + ' Mín. ' + escapeHtml(product.min) + '</span><span>' + storeIcon("zap") + ' Pedido automático</span></div></div><strong>' + money(product.priceBRL) + '<small>por 1.000</small></strong></section><form class="store-smm-order-form" data-store-smm-order data-rate="' + escapeHtml(product.priceBRL) + '"><input type="hidden" name="serviceId" value="' + escapeHtml(product.sourceId) + '"><label><span>Link do perfil ou publicação</span><div class="store-smm-field-icon">' + storeIcon("link") + '<input name="link" type="url" inputmode="url" maxlength="2000" placeholder="https://instagram.com/..." required></div></label><label><span>Quantidade</span><input name="quantity" type="number" inputmode="numeric" min="' + escapeHtml(product.min) + '" max="' + escapeHtml(product.max) + '" value="' + escapeHtml(product.min) + '" required data-store-smm-quantity><small>Mínimo: ' + escapeHtml(product.min) + ' • Máximo: ' + escapeHtml(product.max) + '</small></label><div class="store-smm-charge"><span>Total pela quantidade informada</span><strong data-store-smm-charge>' + money((Number(product.priceBRL) * Number(product.min)) / 1000) + '</strong></div><button type="submit" class="store-purchase-submit">' + storeIcon("cart") + '<span>Fazer pedido</span></button></form><section class="store-smm-description"><h3>Descrição</h3><div><span>' + storeIcon("info") + '</span><p>' + multiline(description) + '</p></div></section><section class="store-smm-information"><h3>Informações do serviço</h3><article>' + storeIcon("box") + '<div><b>Quantidade permitida</b><small>De ' + escapeHtml(product.min) + ' até ' + escapeHtml(product.max) + ' unidades.</small></div></article><article>' + storeIcon("wallet") + '<div><b>Pagamento pela carteira</b><small>O valor é calculado e debitado ao confirmar.</small></div></article><article>' + storeIcon("shield") + '<div><b>Dados protegidos</b><small>O link é usado somente para executar este pedido.</small></div></article></section>';
+    openDialog(modal);
+    setTimeout(function () { host.querySelector('input[name="link"]')?.focus(); }, 180);
+  }
+
+  async function handleSmmOrder(form) {
+    const product = memberProducts.find(function (item) { return item.kind === "smm" && String(item.sourceId) === String(form.elements.serviceId.value); });
+    if (!product) return toast("Este serviço não está mais disponível.", true);
+    const quantity = Number(form.elements.quantity.value);
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.dataset.label = button.innerHTML; button.textContent = "Enviando pedido…"; }
+    try {
+      const order = await api("/api/orders", { method: "POST", body: { serviceId: Number(product.sourceId), link: form.elements.link.value, quantity: quantity, paymentMethod: "wallet", displayedRateBRL: Number(product.priceBRL), idempotencyKey: randomOrderKey() } });
+      const host = form.closest("[data-store-smm-content]");
+      if (host) host.innerHTML = dialogHeading("PEDIDO CONFIRMADO", "Tudo certo!") + '<div class="store-smm-success">' + storeIcon("check") + '<h3>Pedido enviado com sucesso</h3><p>O serviço <b>' + escapeHtml(product.name) + '</b> já foi encaminhado para processamento.</p><div><span>Pedido</span><strong>#' + escapeHtml(String(order.providerOrderId || order.id || "").slice(0, 12)) + '</strong></div><button type="button" class="store-purchase-submit" data-store-close-dialog>Fechar</button></div>';
+      try {
+        const wallet = await api("/api/wallet");
+        const footerBalance = document.querySelector(".store-video-footer [data-store-open-profile] span");
+        if (footerBalance) footerBalance.textContent = money(wallet.balance);
+      } catch { /* o pedido já foi confirmado; saldo será atualizado na próxima carga */ }
+      toast("Pedido SMM criado com sucesso.");
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Fazer pedido"; }
+    }
+  }
+
+  function compressProfilePhoto(file) {
+    if (!/^image\/(jpeg|png|webp)$/i.test(file.type || "")) return Promise.reject(new Error("Escolha uma foto JPG, PNG ou WebP."));
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onerror = function () { reject(new Error("Não foi possível ler a foto.")); };
+      reader.onload = function () {
+        const image = new Image();
+        image.onerror = function () { reject(new Error("A foto selecionada é inválida.")); };
+        image.onload = function () {
+          const size = 256;
+          const canvas = document.createElement("canvas");
+          canvas.width = size; canvas.height = size;
+          const context = canvas.getContext("2d");
+          const scale = Math.max(size / image.width, size / image.height);
+          const width = image.width * scale; const height = image.height * scale;
+          context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+          let quality = .78;
+          let result = canvas.toDataURL("image/jpeg", quality);
+          while (result.length > 90_000 && quality > .34) { quality -= .08; result = canvas.toDataURL("image/jpeg", quality); }
+          if (result.length > 95_000) return reject(new Error("A foto ficou muito grande. Escolha outra imagem."));
+          resolve(result);
+        };
+        image.src = String(reader.result);
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function randomOrderKey() {
@@ -534,7 +725,82 @@
     }
   }
 
+  async function handleProfilePassword(form) {
+    const data = values(form);
+    if (String(data.newPassword || "").length < 6) return toast("A nova senha precisa ter pelo menos 6 caracteres.", true);
+    if (data.newPassword !== data.confirmPassword) return toast("As novas senhas não coincidem.", true);
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.dataset.label = button.innerHTML; button.textContent = "Salvando…"; }
+    try {
+      const result = await api("/api/account/password", { method: "POST", body: { currentPassword: data.currentPassword, newPassword: data.newPassword } });
+      saveSession({ ...(session() || {}), ...result });
+      form.reset();
+      toast("Senha alterada com sucesso.");
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Salvar nova senha"; }
+    }
+  }
+
+  async function handleNewTicket(form) {
+    const data = values(form);
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.dataset.label = button.innerHTML; button.textContent = "Enviando…"; }
+    try {
+      const ticket = await api("/api/tickets", { method: "POST", body: { subject: data.subject, message: data.message } });
+      toast("Ticket criado com sucesso.");
+      await renderTicketDetail(ticket.id);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Enviar ticket"; }
+    }
+  }
+
+  async function handleTicketReply(form) {
+    const data = values(form);
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      await api("/api/tickets/" + encodeURIComponent(form.dataset.ticketId) + "/messages", { method: "POST", body: { message: data.message } });
+      await renderTicketDetail(form.dataset.ticketId);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) button.disabled = false;
+    }
+  }
+
   document.addEventListener("submit", function (event) {
+    const smmOrder = event.target.closest("[data-store-smm-order]");
+    if (smmOrder) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      handleSmmOrder(smmOrder);
+      return;
+    }
+    const profilePassword = event.target.closest("[data-store-profile-password]");
+    if (profilePassword) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      handleProfilePassword(profilePassword);
+      return;
+    }
+    const newTicket = event.target.closest("[data-store-new-ticket]");
+    if (newTicket) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      handleNewTicket(newTicket);
+      return;
+    }
+    const ticketReply = event.target.closest("[data-store-ticket-reply]");
+    if (ticketReply) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      handleTicketReply(ticketReply);
+      return;
+    }
     const subscriptionOrder = event.target.closest("[data-store-subscription-order]");
     if (subscriptionOrder) {
       event.preventDefault();
@@ -550,6 +816,18 @@
   }, true);
 
   document.addEventListener("change", function (event) {
+    const profileInput = event.target.closest("[data-store-profile-photo-input]");
+    if (profileInput && profileInput.files && profileInput.files[0]) {
+      compressProfilePhoto(profileInput.files[0]).then(function (photoDataUrl) {
+        return api("/api/account/profile-photo", { method: "PATCH", body: { photoDataUrl: photoDataUrl } });
+      }).then(function () {
+        toast("Foto de perfil atualizada.");
+        return openProfile();
+      }).catch(function (error) {
+        toast(error.message, true);
+      }).finally(function () { profileInput.value = ""; });
+      return;
+    }
     const input = event.target.closest('[data-store-form] input[type="file"][name="image"]');
     if (!input || !input.files || !input.files[0]) return;
     const form = input.closest("[data-store-form]");
@@ -562,6 +840,11 @@
   });
 
   document.addEventListener("input", function (event) {
+    const smmQuantity = event.target.closest("[data-store-smm-quantity]");
+    if (smmQuantity) {
+      updateSmmCharge(smmQuantity);
+      return;
+    }
     const productSearch = event.target.closest("[data-store-search]");
     if (productSearch) {
       const dialog = productSearch.closest(".store-search-dialog");
@@ -596,6 +879,13 @@
       closeDialog(event.target);
       return;
     }
+    const moreToggle = event.target.closest("[data-store-toggle-more]");
+    if (moreToggle) {
+      event.preventDefault();
+      toggleMoreMenu(moreToggle);
+      return;
+    }
+    if (!event.target.closest(".store-more-wrap")) closeMoreMenu();
     const openSearch = event.target.closest("[data-store-open-search]");
     if (openSearch) {
       event.preventDefault();
@@ -604,10 +894,75 @@
       setTimeout(function () { modal?.querySelector("[data-store-search]")?.focus(); }, 180);
       return;
     }
+    const openProfileButton = event.target.closest("[data-store-open-profile]");
+    if (openProfileButton) {
+      event.preventDefault();
+      openProfile();
+      return;
+    }
+    const openSupportButton = event.target.closest("[data-store-open-support]");
+    if (openSupportButton) {
+      event.preventDefault();
+      openSupport("new");
+      return;
+    }
+    const openTicketsButton = event.target.closest("[data-store-open-tickets]");
+    if (openTicketsButton) {
+      event.preventDefault();
+      openSupport("tickets");
+      return;
+    }
     const openOrders = event.target.closest("[data-store-open-orders]");
     if (openOrders) {
       event.preventDefault();
+      closeMoreMenu();
       openSubscriptionOrders();
+      return;
+    }
+    const supportMode = event.target.closest("[data-store-support-mode]");
+    if (supportMode) {
+      event.preventDefault();
+      if (supportMode.dataset.storeSupportMode === "tickets") renderTicketList();
+      else {
+        const host = document.querySelector("[data-store-support-content]");
+        if (host) host.innerHTML = supportNewMarkup();
+      }
+      return;
+    }
+    const ticketView = event.target.closest("[data-store-ticket-view]");
+    if (ticketView) {
+      event.preventDefault();
+      renderTicketDetail(ticketView.dataset.storeTicketView);
+      return;
+    }
+    const ticketClose = event.target.closest("[data-store-ticket-close]");
+    if (ticketClose) {
+      event.preventDefault();
+      if (!window.confirm("Deseja encerrar este ticket?")) return;
+      try {
+        await api("/api/tickets/" + encodeURIComponent(ticketClose.dataset.storeTicketClose) + "/close", { method: "PATCH" });
+        toast("Ticket encerrado.");
+        await renderTicketDetail(ticketClose.dataset.storeTicketClose);
+      } catch (error) { toast(error.message, true); }
+      return;
+    }
+    const choosePhoto = event.target.closest("[data-store-choose-profile-photo]");
+    if (choosePhoto) {
+      event.preventDefault();
+      choosePhoto.closest("[data-store-profile-content]")?.querySelector("[data-store-profile-photo-input]")?.click();
+      return;
+    }
+    const logout = event.target.closest("[data-store-logout]");
+    if (logout) {
+      event.preventDefault();
+      localStorage.removeItem(SESSION_KEY);
+      window.location.reload();
+      return;
+    }
+    const community = event.target.closest("[data-store-community]");
+    if (community) {
+      event.preventDefault();
+      toast("O acesso da comunidade será publicado aqui pela Tw Store.");
       return;
     }
     const expand = event.target.closest("[data-store-category-expand]");
@@ -632,8 +987,7 @@
     const smm = event.target.closest("[data-store-smm]");
     if (smm) {
       event.preventDefault();
-      closeDialog(smm.closest(".store-dialog-backdrop"));
-      queueServiceSelection(smm.dataset.storeSmm, smm.dataset.storeCategory);
+      openSmmProduct(smm);
       return;
     }
     const vpn = event.target.closest('[data-vpn-action="buy"]');
@@ -680,7 +1034,6 @@
       const main = app.querySelector(".app-shell > main.page");
       if (!main?.classList.contains("storefront-page")) document.body.classList.remove("storefront-active", "store-dialog-open");
       enhanceMemberHome(main);
-      applyQueuedService();
     } else if (current.role === "admin") {
       document.body.classList.remove("storefront-active", "store-dialog-open");
       enhanceAdminCatalog(app.querySelector(".admin-catalog-page"));
@@ -696,6 +1049,12 @@
 
   const observer = new MutationObserver(scheduleSync);
   if (app) observer.observe(app, { childList: true, subtree: true });
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    closeMoreMenu();
+    const openDialogs = document.querySelectorAll(".store-dialog-backdrop.open");
+    if (openDialogs.length) closeDialog(openDialogs[openDialogs.length - 1]);
+  });
   document.addEventListener("visibilitychange", function () { if (!document.hidden) scheduleSync(); });
   scheduleSync();
 })();
