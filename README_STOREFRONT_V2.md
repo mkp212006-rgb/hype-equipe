@@ -1,6 +1,15 @@
-# Tw Store 2.7 — Vitrine administrável
+# Tw Store 2.8 — Layout LMT em vermelho
 
-A página inicial do cliente agora usa uma vitrine inspirada na organização de grandes lojas digitais, mantendo integralmente a identidade vermelha e escura da Tw Store.
+A página inicial do cliente segue a mesma sequência visual da referência LMT Store: faixa promocional, cabeçalho com busca, hero de boas-vindas, três destaques, catálogos, bloco de funcionamento, informações de confiança e rodapé. Toda a identidade azul foi convertida para o vermelho da Tw Store.
+
+## Experiência do cliente
+
+- busca instantânea por nome, categoria, descrição ou selo;
+- até quatro itens por catálogo com expansão em **Ver mais**;
+- destaques e oferta principal definidos pelos produtos marcados pelo administrador;
+- atalhos para carteira, pedidos, suporte, SMM, VPN e assinaturas;
+- layout responsivo para celular, tablet e desktop;
+- conteúdo real vindo do PostgreSQL, sem produtos ou preços fixos no frontend.
 
 ## O que o administrador controla
 
