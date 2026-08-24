@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import http from "node:http";
 import test from "node:test";
+import vm from "node:vm";
 import { createApp } from "../src/app.js";
 import { hashSecret } from "../src/crypto.js";
 
 async function startTestServer() {
   const adminHash = await hashSecret("unit-test-password-123");
-  const teamHash = await hashSecret("team-code-123");
+  const memberHash = await hashSecret("member-password-123");
   const admin = {
     username: "admin",
     password_hash: adminHash,
@@ -15,9 +17,16 @@ async function startTestServer() {
   };
   const fakeDb = {
     healthcheck: async () => {},
-    getTeamAuth: async () => ({ codeHash: teamHash, tokenVersion: 1 }),
     getAdmin: async (username) => username === "admin" ? admin : null,
+    getUser: async (username) => username === "pessoa" ? {
+      username: "pessoa",
+      name: "Pessoa",
+      password_hash: memberHash,
+      token_version: 1,
+      active: true,
+    } : null,
     recordAdminLogin: async () => {},
+    recordUserLogin: async () => {},
     listServices: async () => [],
     listOrders: async () => [],
     countOrders: async () => 0,
@@ -26,13 +35,17 @@ async function startTestServer() {
     isConfigured: () => false,
     balance: async () => ({ balance: 0, currency: "USD" }),
   };
+  const fakeMercadoPago = {
+    isConfigured: () => false,
+    isWebhookConfigured: () => false,
+  };
   const config = {
     nodeEnv: "test",
     jwtSecret: "z".repeat(48),
     tokenTtlSeconds: 3600,
     publicDirectory: new URL("../public", import.meta.url).pathname,
   };
-  const app = await createApp({ config, db: fakeDb, smm: fakeSmm });
+  const app = await createApp({ config, db: fakeDb, smm: fakeSmm, mercadoPago: fakeMercadoPago });
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -61,19 +74,58 @@ test("admin login creates a working authenticated session", async (context) => {
   assert.equal(info.status, 200);
   assert.deepEqual(await info.json(), {
     member: "Administrador",
+    username: "admin",
     role: "admin",
     mustChangePassword: true,
   });
 });
 
-test("member login rejects an incorrect shared code", async (context) => {
+test("member login rejects an incorrect password", async (context) => {
   const server = await startTestServer();
   context.after(server.close);
   const response = await fetch(`${server.baseUrl}/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "Pessoa", accessCode: "wrong-code" }),
+    body: JSON.stringify({ username: "pessoa", password: "wrong-password" }),
   });
   assert.equal(response.status, 401);
   assert.match((await response.json()).error, /incorreto/);
+});
+
+test("serves the same-origin runtime configuration without stale asset caching", async (context) => {
+  const server = await startTestServer();
+  context.after(server.close);
+
+  const home = await fetch(`${server.baseUrl}/`);
+  assert.equal(home.status, 200);
+  assert.match(home.headers.get("cache-control") || "", /no-cache/);
+  const html = await home.text();
+  assert.ok(html.indexOf("runtime-config.js") < html.indexOf("app.js"));
+
+  const runtime = await fetch(`${server.baseUrl}/runtime-config.js`);
+  assert.equal(runtime.status, 200);
+  assert.match(runtime.headers.get("cache-control") || "", /no-cache/);
+  const source = await runtime.text();
+  assert.match(source, /window\.location\.origin/);
+  assert.match(source, /tw-store-application\.up\.railway\.app/);
+  assert.doesNotMatch(source, /hype-equipe-production\.up\.railway\.app/);
+});
+
+test("runtime configuration prefers the current origin and coalesces visual work", async () => {
+  const source = await readFile(new URL("../public/runtime-config.js", import.meta.url), "utf8");
+  const frames = [];
+  const window = {
+    location: { protocol: "https:", origin: "https://example-service.up.railway.app" },
+    requestAnimationFrame: (callback) => { frames.push(callback); return frames.length; },
+    setTimeout,
+  };
+  vm.runInNewContext(source, { window });
+  assert.equal(window.TW_STORE_CONFIG.apiBaseUrl, "https://example-service.up.railway.app");
+
+  let calls = 0;
+  window.TW_STORE_CONFIG.schedule("same-task", () => { calls += 1; });
+  window.TW_STORE_CONFIG.schedule("same-task", () => { calls += 1; });
+  assert.equal(frames.length, 1);
+  frames[0]();
+  assert.equal(calls, 1);
 });
