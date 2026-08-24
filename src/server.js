@@ -13,6 +13,7 @@ import { createPaymentPushFeatures } from "./payment-push-features.js";
 import { createReportFeatures } from "./report-features.js";
 import { SmmClient } from "./smm-client.js";
 import { createSupportFeatures } from "./support-features.js";
+import { createStorefrontFeatures } from "./storefront-features.js";
 import { createVpnFeatures } from "./vpn-features.js";
 
 const { Pool } = pg;
@@ -484,11 +485,13 @@ catalogRouter.post("/admin/services/:serviceId/sync", guarded("admin", async (re
 const paymentPushFeatures = await createPaymentPushFeatures({ config, db });
 const supportFeatures = await createSupportFeatures({ config, db });
 const vpnFeatures = await createVpnFeatures({ config, db });
+const storefrontFeatures = await createStorefrontFeatures({ config, db });
 const reportFeatures = await createReportFeatures({ config, db });
 const legacyApp = await createApp({ config, db, smm, mercadoPago });
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
+app.use(storefrontFeatures.router);
 app.use(paymentPushFeatures.router);
 app.use(supportFeatures.router);
 app.use(vpnFeatures.router);
@@ -516,6 +519,7 @@ async function shutdown(signal) {
     await Promise.allSettled([
       db.close(),
       catalogPool.end(),
+      storefrontFeatures.close(),
       paymentPushFeatures.close(),
       supportFeatures.close(),
       vpnFeatures.close(),
