@@ -88,10 +88,15 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(main.innerHTML, /E-mail que receberá a assinatura/);
   assert.match(main.innerHTML, /data-store-toggle-more/);
   assert.match(main.innerHTML, /data-store-open-profile/);
-  assert.match(main.innerHTML, /data-store-open-support/);
+  assert.match(main.innerHTML, /data-store-whatsapp/);
   assert.match(main.innerHTML, /data-store-open-tickets/);
+  assert.match(main.innerHTML, /store-header-left/);
+  assert.match(main.innerHTML, /store-header-wallet/);
+  assert.match(main.innerHTML, /R\$ 50,00/);
   assert.match(main.innerHTML, /data-store-smm="101"/);
   assert.match(main.innerHTML, /data-store-smm-modal/);
+  assert.doesNotMatch(main.innerHTML, /store-mosaic/);
+  assert.doesNotMatch(main.innerHTML, /store-cart-button/);
   assert.doesNotMatch(main.innerHTML, /data-nav="settings"/);
   assert.doesNotMatch(main.innerHTML, /data-nav="new-order"/);
   assert.doesNotMatch(main.innerHTML, /LMT Store/i);
@@ -125,5 +130,5 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   const menuMarkup = window.__moreMenu({ member: "Cliente", username: "cliente" });
   assert.match(menuMarkup, /data-store-open-profile/);
   assert.match(menuMarkup, /data-store-open-tickets/);
-  assert.match(menuMarkup, /data-store-open-support/);
+  assert.match(menuMarkup, /data-store-whatsapp/);
 });

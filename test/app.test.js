@@ -139,7 +139,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
   assert.match(html, /theme-color" content="#000000"/);
-  assert.match(html, /20260824-modals-2100/);
+  assert.match(html, /20260824-header-wallet-2110/);
 
   const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
@@ -152,20 +152,23 @@ test("serves the storefront layout assets from the same Railway origin", async (
   const stylesheetSource = await stylesheet.text();
   const scriptSource = await script.text();
   const adminScriptSource = await adminScript.text();
-  assert.match(stylesheetSource, /store-mosaic/);
   assert.match(stylesheetSource, /store-reference-header/);
   assert.match(stylesheetSource, /store-feature-grid/);
+  assert.match(stylesheetSource, /store-header-left/);
+  assert.match(stylesheetSource, /store-header-wallet/);
   assert.match(stylesheetSource, /store-more-menu/);
   assert.match(stylesheetSource, /store-profile-dialog/);
   assert.match(stylesheetSource, /store-support-dialog/);
   assert.match(stylesheetSource, /store-smm-detail-dialog/);
   assert.match(stylesheetSource, /#000/);
+  assert.doesNotMatch(stylesheetSource, /store-mosaic/);
+  assert.doesNotMatch(stylesheetSource, /store-cart-button/);
   assert.match(scriptSource, /\/api\/storefront/);
   assert.match(scriptSource, /\/api\/subscription-orders/);
   assert.match(scriptSource, /data-store-search/);
   assert.match(scriptSource, /data-store-toggle-more/);
   assert.match(scriptSource, /data-store-open-profile/);
-  assert.match(scriptSource, /data-store-open-support/);
+  assert.match(scriptSource, /data-store-whatsapp/);
   assert.match(scriptSource, /data-store-open-tickets/);
   assert.match(scriptSource, /data-store-smm-order/);
   assert.match(scriptSource, /data-store-profile-password/);
@@ -176,8 +179,14 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(scriptSource, /\/api\/account/);
   assert.match(scriptSource, /\/api\/tickets/);
   assert.match(scriptSource, /\/api\/orders/);
+  assert.match(scriptSource, /https:\/\/wa\.me\/5512983087742/);
+  assert.match(scriptSource, /store-header-left/);
+  assert.match(scriptSource, /store-header-wallet/);
   assert.doesNotMatch(scriptSource, /queueServiceSelection/);
   assert.doesNotMatch(scriptSource, /data-nav="settings"/);
+  assert.doesNotMatch(scriptSource, /function mosaicTile/);
+  assert.doesNotMatch(scriptSource, /store-mosaic/);
+  assert.doesNotMatch(scriptSource, /store-cart-button/);
   assert.match(scriptSource, /CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS/);
   assert.match(scriptSource, /tw-store-icon\.png/);
   assert.match(adminScriptSource, /\/admin\/subscription-orders/);
