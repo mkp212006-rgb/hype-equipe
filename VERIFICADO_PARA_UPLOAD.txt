@@ -1,4 +1,4 @@
-TW STORE — PACOTE VERIFICADO PARA UPLOAD
+TW STORE 2.6.0 — PACOTE COMPLETO PARA UPLOAD
 
 Repositório conferido: mkp212006-rgb/hype-equipe (branch main)
 Identidade Android nova: com.twstore.mobile
@@ -7,6 +7,13 @@ Servidor padrão: https://tw-store-application.up.railway.app
 
 Este ZIP contém os arquivos de código que precisam ser adicionados/substituídos no GitHub.
 Não é necessário editar o conteúdo desses arquivos antes do upload.
+
+CORREÇÕES DE ESTABILIDADE:
+- site e API usam o mesmo endereço do Railway;
+- carregamento possui limite e botão para tentar novamente;
+- observadores de tela são agrupados para não travar o navegador;
+- servidor inicia diretamente, sem alterar arquivos em runtime;
+- assets antigos não ficam presos no cache após o deploy.
 
 IMPORTANTE APÓS O UPLOAD:
 1. Apagar a pasta antiga: android/app/src/main/java/com/hypeequipe/

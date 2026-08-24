@@ -1,13 +1,13 @@
 {
   "name": "hype-equipe",
-  "version": "2.5.2",
+  "version": "2.6.0",
   "private": true,
   "type": "module",
-  "description": "Backend do Tw Store com contas, carteira BRL, Mercado Pago, categorias, SMM, VPN, relatórios financeiros e navegação administrativa mobile corrigida e seletores organizados de catálogo/pedidos.",
-  "main": "src/launcher.js",
+  "description": "Tw Store para Railway com inicialização estável, API same-origin, contas, carteira BRL, Mercado Pago, categorias, SMM, VPN e relatórios.",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/launcher.js",
-    "check": "node --check src/launcher.js && node --check src/server.js && node --check src/app.js && node --check src/db.js && node --check src/support-features.js && node --check src/vpn-features.js && node --check src/smm-client.js && node --check src/mercado-pago-client.js && node --check public/features-v3.js && node --check public/vpn-v1.js && node --check src/report-features.js && node --check public/reports-v1.js && node --check public/admin-layout-v1.js && node --check public/catalog-layout-v1.js",
+    "start": "node src/server.js",
+    "check": "node --check src/launcher.js && node --check src/server.js && node --check src/app.js && node --check src/db.js && node --check src/support-features.js && node --check src/vpn-features.js && node --check src/smm-client.js && node --check src/mercado-pago-client.js && node --check public/runtime-config.js && node --check public/app.js && node --check public/features-v3.js && node --check public/vpn-v1.js && node --check src/report-features.js && node --check public/reports-v1.js && node --check public/admin-layout-v1.js && node --check public/catalog-layout-v1.js",
     "test": "node --test"
   },
   "engines": {

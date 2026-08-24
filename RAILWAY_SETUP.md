@@ -1,28 +1,16 @@
 # Hype Equipe — configuração manual GitHub + Railway
 
-## Arquivos que devem ser substituídos/adicionados no repositório `hype-equipe`
+## Upload no repositório `hype-equipe`
 
-Substitua:
-- `src/app.js`
-- `src/db.js`
-- `src/config.js`
-- `src/server.js`
-- `public/app.js`
-- `public/styles.css`
-- `.env.example`
-
-Adicione:
-- `src/mercado-pago-client.js`
-
-O `package.json` atual pode permanecer como está. A integração do Mercado Pago usa `fetch` nativo do Node, portanto não precisa instalar dependência nova.
+Envie todo o conteúdo deste pacote para a raiz do repositório. Os arquivos `package.json`, `package-lock.json`, `src`, `public`, `test`, `railway.toml` e `Dockerfile` fazem parte da mesma versão e devem ser atualizados juntos.
 
 ## Variáveis do Railway
 
-No serviço `hype-equipe-production`, abra **Variables** e mantenha as variáveis já existentes (`DATABASE_URL`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `SMM_API_URL`, `SMM_API_KEY`). Adicione:
+No serviço do Railway, abra **Variables** e mantenha as variáveis já existentes (`DATABASE_URL`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `SMM_API_URL`, `SMM_API_KEY`). Adicione:
 
 - `MP_ACCESS_TOKEN` = Access Token de produção do Mercado Pago.
 - `MP_WEBHOOK_SECRET` = assinatura secreta gerada em Mercado Pago Developers > sua aplicação > Webhooks.
-- `PUBLIC_BASE_URL` = `https://hype-equipe-production.up.railway.app`
+- `PUBLIC_BASE_URL` = `https://tw-store-application.up.railway.app`
 - `MP_TIMEOUT_MS` = `20000` (opcional).
 
 Não coloque `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` ou `SMM_API_KEY` no GitHub.
@@ -31,7 +19,7 @@ Não coloque `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` ou `SMM_API_KEY` no GitHub.
 
 Na aplicação do Mercado Pago, configure o evento **Pagamentos** (`payment`) com a URL de produção:
 
-`https://hype-equipe-production.up.railway.app/webhooks/mercado-pago`
+`https://tw-store-application.up.railway.app/webhooks/mercado-pago`
 
 Depois copie a assinatura secreta gerada e coloque em `MP_WEBHOOK_SECRET` no Railway.
 
@@ -57,6 +45,6 @@ Se o Railway já estiver conectado ao repositório `mkp212006-rgb/hype-equipe`, 
 
 Após o deploy, abra:
 
-`https://hype-equipe-production.up.railway.app/health`
+`https://tw-store-application.up.railway.app/health`
 
 A resposta deve ter `status: "ok"`, `currency: "BRL"` e os campos de configuração do Mercado Pago. Para depósitos reais, `mercadoPagoConfigured` e `mercadoPagoWebhookConfigured` precisam estar `true`.
