@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -68,6 +68,46 @@ function optionalUrl(value) {
   try { parsed = new URL(raw); } catch { throw new HttpError(400, "Link de compra inválido."); }
   if (!["http:", "https:"].includes(parsed.protocol)) throw new HttpError(400, "O link deve começar com http:// ou https://.");
   return parsed.toString();
+}
+
+export function normalizeDeliveryEmail(value) {
+  const email = String(value == null ? "" : value).trim().toLowerCase();
+  if (email.length < 6 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    throw new HttpError(400, "Informe um e-mail válido para receber a assinatura.");
+  }
+  return email;
+}
+
+function uuidValue(value, label) {
+  const result = String(value || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(result)) {
+    throw new HttpError(400, `${label} inválido.`);
+  }
+  return result;
+}
+
+function encryptionKey(secret) {
+  return createHash("sha256").update(String(secret)).digest();
+}
+
+export function encryptDeliveryData(value, secret) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(secret), iv);
+  const encrypted = Buffer.concat([cipher.update(String(value), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1:${iv.toString("base64")}:${tag.toString("base64")}:${encrypted.toString("base64")}`;
+}
+
+export function decryptDeliveryData(value, secret) {
+  const parts = String(value || "").split(":");
+  if (parts.length !== 4 || parts[0] !== "v1") return "";
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", encryptionKey(secret), Buffer.from(parts[1], "base64"));
+    decipher.setAuthTag(Buffer.from(parts[2], "base64"));
+    return Buffer.concat([decipher.update(Buffer.from(parts[3], "base64")), decipher.final()]).toString("utf8");
+  } catch {
+    return "";
+  }
 }
 
 function categoryFromRow(row) {
@@ -148,6 +188,27 @@ function subscriptionFromRow(row) {
   };
 }
 
+function subscriptionOrderFromRow(row, config, { admin = false } = {}) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    productId: row.product_id,
+    productName: row.product_name,
+    priceBRL: Number(row.price_brl),
+    currency: "BRL",
+    deliveryEmail: row.delivery_email,
+    status: row.status,
+    deliveryData: row.status === "fulfilled" || admin ? decryptDeliveryData(row.delivery_data_enc, config.jwtSecret) : "",
+    adminNote: admin ? row.admin_note || "" : "",
+    createdBy: admin ? row.username : undefined,
+    walletDebited: Boolean(row.wallet_debited),
+    walletRefunded: Boolean(row.wallet_refunded),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    fulfilledAt: row.fulfilled_at,
+  };
+}
+
 export async function createStorefrontFeatures({ config, db }) {
   const pool = new Pool({
     connectionString: config.databaseUrl,
@@ -190,6 +251,26 @@ export async function createStorefrontFeatures({ config, db }) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS catalog_products_category_idx ON catalog_products(category_id, sort_order, name);
+
+    CREATE TABLE IF NOT EXISTS subscription_orders (
+      id UUID PRIMARY KEY,
+      idempotency_key TEXT NOT NULL UNIQUE,
+      product_id UUID REFERENCES catalog_products(id) ON DELETE SET NULL,
+      username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      product_name TEXT NOT NULL,
+      price_brl NUMERIC(18,2) NOT NULL CHECK (price_brl > 0),
+      delivery_email TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','fulfilled','refunded')),
+      delivery_data_enc TEXT NOT NULL DEFAULT '',
+      admin_note TEXT NOT NULL DEFAULT '',
+      wallet_debited BOOLEAN NOT NULL DEFAULT TRUE,
+      wallet_refunded BOOLEAN NOT NULL DEFAULT FALSE,
+      fulfilled_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS subscription_orders_username_idx ON subscription_orders(username, created_at DESC);
+    CREATE INDEX IF NOT EXISTS subscription_orders_status_idx ON subscription_orders(status, created_at DESC);
   `);
 
   const router = express.Router();
@@ -284,6 +365,135 @@ export async function createStorefrontFeatures({ config, db }) {
 
   router.get("/admin/storefront", authenticate, requireRole("admin"), async (_req, res) => {
     res.json(await loadStorefront(true));
+  });
+
+  router.get("/api/subscription-orders", authenticate, requireRole("member"), async (req, res) => {
+    const result = await pool.query(
+      "SELECT * FROM subscription_orders WHERE username=$1 ORDER BY created_at DESC LIMIT 100",
+      [req.storeAuth.sub],
+    );
+    res.json(result.rows.map((row) => subscriptionOrderFromRow(row, config)));
+  });
+
+  router.post("/api/subscription-orders", authenticate, requireRole("member"), async (req, res) => {
+    const productId = uuidValue(req.body?.productId, "Produto");
+    const deliveryEmail = normalizeDeliveryEmail(req.body?.deliveryEmail);
+    const idempotencyKey = cleanText(req.body?.idempotencyKey, "Chave do pedido", { min: 12, max: 128 });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query(
+        "SELECT * FROM subscription_orders WHERE idempotency_key=$1 FOR UPDATE",
+        [idempotencyKey],
+      );
+      if (existing.rowCount) {
+        if (existing.rows[0].username !== req.storeAuth.sub) throw new HttpError(409, "Chave de pedido já utilizada.");
+        await client.query("COMMIT");
+        return res.json(subscriptionOrderFromRow(existing.rows[0], config));
+      }
+
+      const productResult = await client.query(
+        "SELECT * FROM catalog_products WHERE id=$1 AND enabled=TRUE FOR SHARE",
+        [productId],
+      );
+      if (!productResult.rowCount) throw new HttpError(404, "Essa assinatura não está disponível.");
+      const product = productResult.rows[0];
+      const priceBRL = Number(product.price_brl);
+      const wallet = await client.query("SELECT balance FROM wallets WHERE username=$1 FOR UPDATE", [req.storeAuth.sub]);
+      if (!wallet.rowCount) throw new HttpError(404, "Carteira não encontrada.");
+      const balance = Number(wallet.rows[0].balance);
+      if (balance + 0.00001 < priceBRL) throw new HttpError(402, "Saldo insuficiente na carteira.");
+      const newBalance = Number((balance - priceBRL).toFixed(2));
+      const orderId = randomUUID();
+
+      await client.query(
+        "UPDATE wallets SET balance=$2, updated_at=NOW() WHERE username=$1",
+        [req.storeAuth.sub, newBalance],
+      );
+      const order = await client.query(
+        `INSERT INTO subscription_orders (
+          id,idempotency_key,product_id,username,product_name,price_brl,delivery_email,status,wallet_debited
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',TRUE) RETURNING *`,
+        [orderId, idempotencyKey, productId, req.storeAuth.sub, product.name, priceBRL, deliveryEmail],
+      );
+      await client.query(
+        `INSERT INTO wallet_transactions (id,username,type,amount,description,reference)
+         VALUES ($1,$2,'subscription_order',$3,$4,$5)`,
+        [randomUUID(), req.storeAuth.sub, -priceBRL, `Assinatura: ${product.name}`, orderId],
+      );
+      await client.query("COMMIT");
+      return res.status(201).json({
+        ...subscriptionOrderFromRow(order.rows[0], config),
+        balance: newBalance,
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+
+  router.get("/admin/subscription-orders", authenticate, requireRole("admin"), async (_req, res) => {
+    const result = await pool.query("SELECT * FROM subscription_orders ORDER BY created_at DESC LIMIT 250");
+    res.json(result.rows.map((row) => subscriptionOrderFromRow(row, config, { admin: true })));
+  });
+
+  router.patch("/admin/subscription-orders/:id/fulfill", authenticate, requireRole("admin"), async (req, res) => {
+    const id = uuidValue(req.params.id, "Pedido");
+    const deliveryData = cleanText(req.body?.deliveryData, "Dados da assinatura", { min: 2, max: 4_000 });
+    const adminNote = cleanText(req.body?.adminNote, "Observação", { max: 1_000 });
+    const result = await pool.query(
+      `UPDATE subscription_orders SET
+        status='fulfilled', delivery_data_enc=$2, admin_note=$3, fulfilled_at=NOW(), updated_at=NOW()
+       WHERE id=$1 AND status<>'refunded' RETURNING *`,
+      [id, encryptDeliveryData(deliveryData, config.jwtSecret), adminNote],
+    );
+    if (!result.rowCount) {
+      const current = await pool.query("SELECT status FROM subscription_orders WHERE id=$1", [id]);
+      if (!current.rowCount) throw new HttpError(404, "Pedido de assinatura não encontrado.");
+      throw new HttpError(409, "Esse pedido já foi estornado.");
+    }
+    res.json(subscriptionOrderFromRow(result.rows[0], config, { admin: true }));
+  });
+
+  router.patch("/admin/subscription-orders/:id/refund", authenticate, requireRole("admin"), async (req, res) => {
+    const id = uuidValue(req.params.id, "Pedido");
+    const adminNote = cleanText(req.body?.adminNote || "Pedido cancelado pelo administrador.", "Motivo", { min: 2, max: 1_000 });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const orderResult = await client.query("SELECT * FROM subscription_orders WHERE id=$1 FOR UPDATE", [id]);
+      const order = orderResult.rows[0];
+      if (!order) throw new HttpError(404, "Pedido de assinatura não encontrado.");
+      if (order.status === "fulfilled") throw new HttpError(409, "Esse pedido já foi entregue.");
+      if (order.status === "refunded") {
+        await client.query("COMMIT");
+        return res.json(subscriptionOrderFromRow(order, config, { admin: true }));
+      }
+      await client.query("SELECT balance FROM wallets WHERE username=$1 FOR UPDATE", [order.username]);
+      await client.query(
+        "UPDATE wallets SET balance=balance+$2, updated_at=NOW() WHERE username=$1",
+        [order.username, Number(order.price_brl)],
+      );
+      const updated = await client.query(
+        `UPDATE subscription_orders SET status='refunded', wallet_refunded=TRUE,
+         admin_note=$2, updated_at=NOW() WHERE id=$1 RETURNING *`,
+        [id, adminNote],
+      );
+      await client.query(
+        `INSERT INTO wallet_transactions (id,username,type,amount,description,reference)
+         VALUES ($1,$2,'refund',$3,$4,$5)`,
+        [randomUUID(), order.username, Number(order.price_brl), `Estorno da assinatura: ${order.product_name}`, id],
+      );
+      await client.query("COMMIT");
+      return res.json(subscriptionOrderFromRow(updated.rows[0], config, { admin: true }));
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 
   router.patch("/admin/categories/:id/presentation", authenticate, requireRole("admin"), async (req, res) => {
