@@ -774,12 +774,6 @@ body.store-dialog-open{overflow:hidden}
   cursor:pointer;
 }
 .storefront-page .store-icon-button:active{transform:scale(.96)}
-.storefront-page .store-cart-button{
-  border-color:#e30613;
-  background:#e30613;
-  box-shadow:0 8px 22px rgba(227,6,19,.24);
-}
-
 .storefront-page .store-hero{
   position:relative;
   display:block;
@@ -891,40 +885,6 @@ body.store-dialog-open{overflow:hidden}
   color:#fff;
 }
 .storefront-page .store-hero-actions .store-icon{width:19px;height:19px}
-
-.store-mosaic{
-  position:relative;
-  z-index:2;
-  display:grid;
-  grid-auto-flow:column;
-  grid-auto-columns:clamp(155px,42vw,230px);
-  grid-template-rows:repeat(3,96px);
-  gap:10px;
-  width:max-content;
-  margin:49px 0 0;
-  padding:0;
-  transform:translateX(clamp(-78px,-12vw,-44px));
-}
-.store-mosaic-card{
-  position:relative;
-  display:block;
-  width:100%;
-  height:96px;
-  padding:0;
-  overflow:hidden;
-  border:1px solid #202027;
-  border-radius:7px;
-  background:#09090c;
-  color:#fff;
-  cursor:pointer;
-}
-.store-mosaic-card>*:not(.store-mosaic-index){width:100%;height:100%;object-fit:cover}
-.store-mosaic-card .store-image-fallback b{font-size:28px;letter-spacing:-2px}
-.store-mosaic-card .store-image-fallback small{font-size:7px}
-.store-mosaic-index{display:none}
-.store-mosaic-placeholder{display:grid;place-items:center;align-content:center;gap:3px;background:linear-gradient(145deg,#24060a,#060608)}
-.store-mosaic-placeholder>span{color:#ef2633;font-size:26px;font-weight:950}
-.store-mosaic-placeholder>small{color:#8c8c93;font-size:7px;letter-spacing:1px}
 
 .storefront-page .store-featured,
 .storefront-page .store-category-section{
@@ -1477,4 +1437,75 @@ body.store-dialog-open{overflow:hidden}
   .store-more-menu{right:-1px}
   .store-profile-card{grid-template-columns:62px minmax(0,1fr);gap:11px;padding:13px}
   .store-profile-avatar{width:62px;height:62px;border-radius:15px}
+}
+
+/* Vitrine 2.11 — menu à esquerda, saldo no cabeçalho e hero sem mosaico */
+.store-header-left{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+.store-header-left>.store-more-wrap{flex:0 0 auto}
+.store-header-left .store-more-menu{right:auto;left:0}
+.storefront-page .store-menu-button{
+  border-color:transparent;
+  background:transparent;
+}
+.storefront-page .store-menu-button .store-icon{
+  width:25px;
+  height:25px;
+  stroke-width:2.8;
+}
+.store-header-wallet{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-width:76px;
+  height:41px;
+  padding:0 8px;
+  border:1px solid rgba(227,6,19,.45);
+  border-radius:11px;
+  background:#14070a;
+  color:#fff;
+  font:inherit;
+  cursor:pointer;
+}
+.store-header-wallet:active{transform:scale(.96)}
+.store-header-wallet .store-icon{width:17px;height:17px;flex:0 0 auto;color:#ef2633}
+.store-header-wallet span{font-size:9px;font-weight:850;white-space:nowrap}
+.storefront-page .store-hero{padding-bottom:58px}
+.storefront-page .store-featured{padding-top:58px}
+
+@media(max-width:430px){
+  .storefront-page .store-header-inner{gap:4px;padding-right:7px;padding-left:7px}
+  .store-header-left{gap:4px}
+  .storefront-page .store-menu-button{width:32px;height:36px}
+  .storefront-page .store-menu-button .store-icon{width:23px;height:23px}
+  .storefront-page .store-brand{gap:5px}
+  .storefront-page .store-brand img{width:38px;height:38px}
+  .storefront-page .store-brand b{max-width:64px;font-size:14px}
+  .storefront-page .store-verified{width:20px;height:20px}
+  .storefront-page .store-header-actions{gap:3px}
+  .storefront-page .store-header-actions>.store-icon-button{width:33px;height:36px}
+  .store-header-wallet{min-width:70px;height:36px;padding:0 6px}
+  .store-header-wallet .store-icon{width:15px;height:15px}
+  .store-header-wallet span{font-size:8px}
+}
+
+@media(max-width:370px){
+  .storefront-page .store-header-inner{gap:3px;padding-right:6px;padding-left:6px}
+  .store-header-left{gap:3px}
+  .storefront-page .store-menu-button{width:29px;height:33px}
+  .storefront-page .store-menu-button .store-icon{width:21px;height:21px}
+  .storefront-page .store-brand{gap:4px}
+  .storefront-page .store-brand img{width:34px;height:34px}
+  .storefront-page .store-brand b{max-width:48px;font-size:12px}
+  .storefront-page .store-verified{width:18px;height:18px}
+  .storefront-page .store-header-actions{gap:2px}
+  .storefront-page .store-header-actions>.store-icon-button{width:29px;height:33px}
+  .store-header-wallet{min-width:58px;height:33px;padding:0 4px}
+  .store-header-wallet .store-icon{width:14px;height:14px}
+  .store-header-wallet span{font-size:7.5px}
 }

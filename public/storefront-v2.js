@@ -2,6 +2,7 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
+  const WHATSAPP_URL = "https://wa.me/5512983087742";
   const runtime = window.TW_STORE_CONFIG || {};
   const API_URL = runtime.apiBaseUrl || window.location.origin;
   const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
@@ -115,7 +116,7 @@
       link: '<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',
       lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
       logout: '<path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/>',
-      more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+      more: '<path d="M4 6h16M4 12h16M4 18h16"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/>',
       send: '<path d="m3 11 18-8-8 18-2-8Z"/><path d="m11 13 4-4"/>',
       shield: '<path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6Z"/><path d="m9 12 2 2 4-5"/>',
@@ -163,14 +164,6 @@
     return '<div class="store-video-section-heading"><i></i><h2>' + escapeHtml(title) + "</h2><i></i></div>";
   }
 
-  function mosaicTile(product, index) {
-    if (!product) {
-      return '<div class="store-mosaic-card store-mosaic-placeholder"><span>TW</span><small>TW STORE</small></div>';
-    }
-    return '<button type="button" class="store-mosaic-card" ' + productActionAttributes(product) + ' aria-label="Abrir ' + escapeHtml(product.name) + '">' +
-      productImage(product, "store-mosaic-image") + '<span class="store-mosaic-index">' + escapeHtml(index + 1) + "</span></button>";
-  }
-
   function featuredCard(product) {
     return '<button type="button" class="store-feature-card" data-store-search-text="' + escapeHtml(productSearchText(product)) + '" ' + productActionAttributes(product) + ' aria-label="Comprar ' + escapeHtml(product.name) + '">' +
       productImage(product, "store-feature-image") +
@@ -210,7 +203,7 @@
   }
 
   function moreMenu(current) {
-    return '<div class="store-more-wrap"><button type="button" class="store-icon-button" data-store-toggle-more aria-label="Mais opções" aria-expanded="false">' + storeIcon("more") + '</button><div class="store-more-menu" data-store-more-menu role="menu" hidden><div class="store-more-account"><span>' + escapeHtml(initials(current.member || current.username)) + '</span><div><b>' + escapeHtml(current.member || "Cliente") + '</b><small>@' + escapeHtml(current.username || "cliente") + '</small></div></div><button type="button" data-store-open-profile role="menuitem">' + storeIcon("user") + '<span><b>Perfil</b><small>Conta, foto e senha</small></span></button><button type="button" data-store-open-orders role="menuitem">' + storeIcon("cart") + '<span><b>Minhas assinaturas</b><small>Pedidos e dados recebidos</small></span></button><button type="button" data-store-open-tickets role="menuitem">' + storeIcon("ticket") + '<span><b>Meus tickets</b><small>Acompanhar atendimentos</small></span></button><button type="button" data-store-open-support role="menuitem">' + storeIcon("headset") + '<span><b>Suporte</b><small>Criar um novo ticket</small></span></button><button type="button" class="store-more-logout" data-store-logout role="menuitem">' + storeIcon("logout") + '<span><b>Sair</b><small>Desconectar da conta</small></span></button></div></div>';
+    return '<div class="store-more-wrap"><button type="button" class="store-icon-button store-menu-button" data-store-toggle-more aria-label="Abrir menu" aria-expanded="false">' + storeIcon("more") + '</button><div class="store-more-menu" data-store-more-menu role="menu" hidden><div class="store-more-account"><span>' + escapeHtml(initials(current.member || current.username)) + '</span><div><b>' + escapeHtml(current.member || "Cliente") + '</b><small>@' + escapeHtml(current.username || "cliente") + '</small></div></div><button type="button" data-store-open-profile role="menuitem">' + storeIcon("user") + '<span><b>Perfil</b><small>Conta, foto e senha</small></span></button><button type="button" data-store-open-orders role="menuitem">' + storeIcon("cart") + '<span><b>Minhas assinaturas</b><small>Pedidos e dados recebidos</small></span></button><button type="button" data-store-open-tickets role="menuitem">' + storeIcon("ticket") + '<span><b>Meus tickets</b><small>Acompanhar atendimentos</small></span></button><button type="button" data-store-whatsapp role="menuitem">' + storeIcon("headset") + '<span><b>Suporte</b><small>Abrir conversa no WhatsApp</small></span></button><button type="button" class="store-more-logout" data-store-logout role="menuitem">' + storeIcon("logout") + '<span><b>Sair</b><small>Desconectar da conta</small></span></button></div></div>';
   }
 
   function profileModal() {
@@ -238,10 +231,6 @@
       const products = productsForCategory(catalog.products, category).filter(function (product) { return product.kind !== "subscription"; });
       return catalogSection(category.name, products, category.id);
     }).join("");
-    const mosaic = catalog.products.filter(function (product) { return product.imageUrl; }).slice(0, 9);
-    const fallbackProducts = catalog.products.length ? catalog.products : [null];
-    while (mosaic.length < 9) mosaic.push(fallbackProducts[mosaic.length % fallbackProducts.length]);
-
     main.classList.add("storefront-page");
     main.dataset.storefrontEnhanced = "true";
     main.closest(".app-shell")?.classList.add("storefront-shell");
@@ -252,8 +241,8 @@
 
     main.innerHTML =
       '<a class="store-promo" href="#store-catalog-start" data-store-scroll="store-catalog-start">CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS! ❤️</a>' +
-      '<header class="store-reference-header"><div class="store-header-inner"><button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-store-open-support aria-label="Criar ticket de suporte">' + storeIcon("headset") + '</button><button type="button" class="store-icon-button" data-store-open-profile aria-label="Abrir perfil">' + storeIcon("user") + '</button><button type="button" class="store-icon-button store-cart-button" data-store-open-orders aria-label="Minhas assinaturas">' + storeIcon("cart") + '</button>' + moreMenu(current) + "</div></div></header>" +
-      '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-community>' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-store-open-support>' + storeIcon("headset") + ' Suporte</button></div></div><div class="store-mosaic">' + mosaic.map(mosaicTile).join("") + "</div></section>" +
+      '<header class="store-reference-header"><div class="store-header-inner"><div class="store-header-left">' + moreMenu(current) + '<button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button></div><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-store-whatsapp aria-label="Abrir suporte no WhatsApp">' + storeIcon("headset") + '</button><button type="button" class="store-header-wallet" data-store-open-profile aria-label="Saldo da carteira: ' + escapeHtml(balance) + '">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + '</span></button><button type="button" class="store-icon-button" data-store-open-profile aria-label="Abrir perfil">' + storeIcon("user") + "</button></div></div></header>" +
+      '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-community>' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-store-whatsapp>' + storeIcon("headset") + ' Suporte</button></div></div></section>' +
       featuredSection + catalogSection("Assinaturas", subscriptions, "subscriptions") + categorySections +
       '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-store-open-profile>' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
       searchModal(catalog.products) + purchaseModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal();
@@ -900,10 +889,11 @@
       openProfile();
       return;
     }
-    const openSupportButton = event.target.closest("[data-store-open-support]");
-    if (openSupportButton) {
+    const whatsapp = event.target.closest("[data-store-whatsapp]");
+    if (whatsapp) {
       event.preventDefault();
-      openSupport("new");
+      closeMoreMenu();
+      window.location.href = WHATSAPP_URL;
       return;
     }
     const openTicketsButton = event.target.closest("[data-store-open-tickets]");
