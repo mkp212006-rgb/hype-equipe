@@ -182,12 +182,43 @@
   function catalogSection(title, products, id) {
     if (!products.length) return "";
     const extraCount = Math.max(0, products.length - 2);
-    const pages = Math.min(5, Math.max(1, Math.ceil(products.length / 2)));
+    const pages = Math.max(1, Math.ceil(products.length / 2));
+    const carouselPages = Array.from({ length: pages }, function (_item, pageIndex) {
+      const firstProductIndex = pageIndex * 2;
+      return '<div class="store-video-product-page" data-store-carousel-page="' + pageIndex + '" role="group" aria-label="Página ' + (pageIndex + 1) + ' de ' + pages + '">' +
+        products.slice(firstProductIndex, firstProductIndex + 2).map(function (product, productIndex) {
+          return catalogCard(product, firstProductIndex + productIndex > 1);
+        }).join("") +
+      "</div>";
+    }).join("");
     return '<section class="store-category-section" id="store-category-' + escapeHtml(id) + '">' + sectionHeading(title) +
-      '<div class="store-video-product-grid">' + products.map(function (product, index) { return catalogCard(product, index > 1); }).join("") + "</div>" +
-      (products.length > 2 ? '<div class="store-video-dots" aria-hidden="true">' + Array.from({ length: pages }, function (_item, index) { return '<i class="' + (index === 0 ? "active" : "") + '"></i>'; }).join("") + "</div>" : "") +
+      '<div class="store-video-product-grid" data-store-carousel data-store-carousel-pages="' + pages + '" data-store-carousel-page-active="0" role="region" aria-label="Produtos de ' + escapeHtml(title) + '" tabindex="0">' + carouselPages + "</div>" +
+      (products.length > 2 ? '<div class="store-video-dots" data-store-carousel-dots aria-label="Paginação de ' + escapeHtml(title) + '">' + Array.from({ length: pages }, function (_item, index) { return '<button type="button" class="' + (index === 0 ? "active" : "") + '" data-store-carousel-dot="' + index + '" aria-label="Ir para a página ' + (index + 1) + '" aria-current="' + (index === 0 ? "true" : "false") + '"></button>'; }).join("") + "</div>" : "") +
       (extraCount ? '<div class="store-video-more-row"><i></i><button type="button" data-store-category-expand data-store-more-count="' + extraCount + '"><span>Ver mais</span><b>' + extraCount + "+</b></button><i></i></div>" : "") +
     "</section>";
+  }
+
+  function updateStoreCarousel(track) {
+    if (!track) return;
+    const pageCount = Math.max(1, Number(track.dataset.storeCarouselPages || 1));
+    const pageWidth = Math.max(1, Number(track.clientWidth || 1));
+    const activePage = Math.max(0, Math.min(pageCount - 1, Math.round(Number(track.scrollLeft || 0) / pageWidth)));
+    track.dataset.storeCarouselPageActive = String(activePage);
+    const section = track.closest(".store-category-section");
+    section?.querySelectorAll("[data-store-carousel-dot]").forEach(function (dot, index) {
+      const active = index === activePage;
+      dot.classList.toggle("active", active);
+      dot.setAttribute("aria-current", active ? "true" : "false");
+    });
+  }
+
+  function scrollStoreCarousel(track, page, behavior) {
+    if (!track) return;
+    const pageCount = Math.max(1, Number(track.dataset.storeCarouselPages || 1));
+    const targetPage = Math.max(0, Math.min(pageCount - 1, Number(page || 0)));
+    const left = targetPage * Math.max(1, Number(track.clientWidth || 1));
+    if (typeof track.scrollTo === "function") track.scrollTo({ left: left, behavior: behavior || "smooth" });
+    else track.scrollLeft = left;
   }
 
   function searchModal(products) {
@@ -1106,17 +1137,27 @@
       toast("O acesso da comunidade será publicado aqui pela Tw Store.");
       return;
     }
+    const carouselDot = event.target.closest("[data-store-carousel-dot]");
+    if (carouselDot) {
+      event.preventDefault();
+      const section = carouselDot.closest(".store-category-section");
+      scrollStoreCarousel(section?.querySelector("[data-store-carousel]"), Number(carouselDot.dataset.storeCarouselDot || 0));
+      return;
+    }
     const expand = event.target.closest("[data-store-category-expand]");
     if (expand) {
       event.preventDefault();
       const section = expand.closest(".store-category-section");
       if (!section) return;
+      const carousel = section.querySelector("[data-store-carousel]");
+      if (carousel) carousel.scrollLeft = 0;
       section.classList.toggle("store-category-expanded");
       const expanded = section.classList.contains("store-category-expanded");
       const label = expand.querySelector("span");
       const count = expand.querySelector("b");
       if (label) label.textContent = expanded ? "Mostrar menos" : "Ver mais";
       if (count) count.hidden = expanded;
+      updateStoreCarousel(carousel);
       return;
     }
     const scroll = event.target.closest("[data-store-scroll]");
@@ -1190,11 +1231,32 @@
 
   const observer = new MutationObserver(scheduleSync);
   if (app) observer.observe(app, { childList: true, subtree: true });
+  document.addEventListener("scroll", function (event) {
+    const carousel = event.target?.closest?.("[data-store-carousel]");
+    if (!carousel || carousel.dataset.storeCarouselScrollQueued === "true") return;
+    carousel.dataset.storeCarouselScrollQueued = "true";
+    requestAnimationFrame(function () {
+      delete carousel.dataset.storeCarouselScrollQueued;
+      updateStoreCarousel(carousel);
+    });
+  }, true);
   document.addEventListener("keydown", function (event) {
+    const carousel = event.target?.closest?.("[data-store-carousel]");
+    if (carousel && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      const current = Number(carousel.dataset.storeCarouselPageActive || 0);
+      scrollStoreCarousel(carousel, current + (event.key === "ArrowRight" ? 1 : -1));
+      return;
+    }
     if (event.key !== "Escape") return;
     closeMoreMenu();
     const openDialogs = document.querySelectorAll(".store-dialog-backdrop.open");
     if (openDialogs.length) closeDialog(openDialogs[openDialogs.length - 1]);
+  });
+  window.addEventListener("resize", function () {
+    document.querySelectorAll("[data-store-carousel]").forEach(function (carousel) {
+      scrollStoreCarousel(carousel, Number(carousel.dataset.storeCarouselPageActive || 0), "auto");
+    });
   });
   document.addEventListener("visibilitychange", function () { if (!document.hidden) scheduleSync(); });
   scheduleSync();
