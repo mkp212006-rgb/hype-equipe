@@ -139,7 +139,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
   assert.match(html, /theme-color" content="#000000"/);
-  assert.match(html, /20260825-wallet-modal-1150/);
+  assert.match(html, /20260825-horizontal-carousel-1230/);
 
   const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
@@ -158,6 +158,9 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(stylesheetSource, /store-header-wallet/);
   assert.match(stylesheetSource, /store-wallet-dialog/);
   assert.match(stylesheetSource, /store-wallet-fee-summary/);
+  assert.match(stylesheetSource, /store-video-product-page/);
+  assert.match(stylesheetSource, /scroll-snap-type:x mandatory/);
+  assert.match(stylesheetSource, /store-video-dots>button/);
   assert.match(stylesheetSource, /store-more-menu/);
   assert.match(stylesheetSource, /store-profile-dialog/);
   assert.match(stylesheetSource, /store-support-dialog/);
@@ -187,6 +190,10 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(scriptSource, /class="store-header-wallet" data-store-open-wallet/);
   assert.match(scriptSource, /data-store-wallet-modal/);
   assert.match(scriptSource, /data-store-wallet-deposit/);
+  assert.match(scriptSource, /data-store-carousel/);
+  assert.match(scriptSource, /data-store-carousel-dot/);
+  assert.match(scriptSource, /updateStoreCarousel/);
+  assert.match(scriptSource, /scrollStoreCarousel/);
   assert.match(scriptSource, /\/api\/wallet\/deposits/);
   assert.match(scriptSource, /Abrir carteira e adicionar saldo/);
   assert.doesNotMatch(scriptSource, /class="store-header-wallet" data-nav="wallet"/);

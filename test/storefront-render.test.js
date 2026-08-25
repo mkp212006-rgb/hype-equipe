@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 test("renders the AMOLED Tw Store structure with balanced interactive markup", async () => {
   const original = await readFile(new URL("../public/storefront-v2.js", import.meta.url), "utf8");
-  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\n})();");
+  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\n})();");
   const app = { querySelector: () => null };
   const classList = { add() {}, remove() {}, toggle() {} };
   const storage = { getItem: () => JSON.stringify({ role: "member", username: "cliente", member: "Cliente" }), setItem() {}, removeItem() {} };
@@ -19,6 +19,7 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
     TW_STORE_CONFIG: {},
     location: { origin: "https://tw.example" },
     crypto: { randomUUID: () => "22222222-2222-4222-8222-222222222222" },
+    addEventListener() {},
   };
   const context = vm.createContext({
     window,
@@ -116,6 +117,29 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(walletMarkup, /Continuar para o Mercado Pago/);
   assert.match(walletMarkup, /Últimas movimentações/);
   assert.match(walletMarkup, /R\$\s*50,00/);
+
+  const carouselProducts = Array.from({ length: 5 }, (_item, index) => ({
+    ...subscription,
+    id: `subscription:${index + 1}`,
+    sourceId: String(index + 1),
+    name: `Assinatura ${index + 1}`,
+    sortOrder: index,
+  }));
+  const carouselMarkup = window.__catalogSection("Assinaturas", carouselProducts, "subscriptions");
+  assert.match(carouselMarkup, /data-store-carousel/);
+  assert.match(carouselMarkup, /data-store-carousel-pages="3"/);
+  assert.equal((carouselMarkup.match(/data-store-carousel-page="/g) || []).length, 3);
+  assert.equal((carouselMarkup.match(/data-store-carousel-dot="/g) || []).length, 3);
+  assert.match(carouselMarkup, /data-store-carousel-dot="2"/);
+  assert.match(carouselMarkup, /aria-current="true"/);
+  assert.match(carouselMarkup, /data-store-category-expand/);
+  assert.match(carouselMarkup, /Ver mais/);
+
+  for (const tag of ["div", "section", "article", "button"]) {
+    const opening = (carouselMarkup.match(new RegExp(`<${tag}(?:\\s|>)`, "g")) || []).length;
+    const closing = (carouselMarkup.match(new RegExp(`</${tag}>`, "g")) || []).length;
+    assert.equal(opening, closing, `${tag} carousel markup should be balanced`);
+  }
 
   for (const tag of ["div", "section", "button", "form", "header", "footer"]) {
     const opening = (main.innerHTML.match(new RegExp(`<${tag}(?:\\s|>)`, "g")) || []).length;
