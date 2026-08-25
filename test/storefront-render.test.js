@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 test("renders the AMOLED Tw Store structure with balanced interactive markup", async () => {
   const original = await readFile(new URL("../public/storefront-v2.js", import.meta.url), "utf8");
-  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\n})();");
+  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\n})();");
   const app = { querySelector: () => null };
   const classList = { add() {}, remove() {}, toggle() {} };
   const storage = { getItem: () => JSON.stringify({ role: "member", username: "cliente", member: "Cliente" }), setItem() {}, removeItem() {} };
@@ -92,8 +92,10 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(main.innerHTML, /data-store-open-tickets/);
   assert.match(main.innerHTML, /store-header-left/);
   assert.match(main.innerHTML, /store-header-wallet/);
-  assert.match(main.innerHTML, /class="store-header-wallet" data-nav="wallet"/);
+  assert.match(main.innerHTML, /class="store-header-wallet" data-store-open-wallet/);
+  assert.match(main.innerHTML, /data-store-wallet-modal/);
   assert.match(main.innerHTML, /Abrir carteira e adicionar saldo/);
+  assert.doesNotMatch(main.innerHTML, /class="store-header-wallet" data-nav="wallet"/);
   assert.match(main.innerHTML, /R\$ 50,00/);
   assert.match(main.innerHTML, /data-store-smm="101"/);
   assert.match(main.innerHTML, /data-store-smm-modal/);
@@ -102,6 +104,18 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.doesNotMatch(main.innerHTML, /data-nav="settings"/);
   assert.doesNotMatch(main.innerHTML, /data-nav="new-order"/);
   assert.doesNotMatch(main.innerHTML, /LMT Store/i);
+
+  const walletMarkup = window.__walletContentMarkup({
+    balance: 50,
+    transactions: [{ type: "deposit", amount: 20, description: "Depósito aprovado", createdAt: "2026-08-25T12:00:00.000Z" }],
+  });
+  assert.match(walletMarkup, /data-store-wallet-deposit/);
+  assert.match(walletMarkup, /data-store-wallet-amount/);
+  assert.match(walletMarkup, /data-store-wallet-value="50"/);
+  assert.match(walletMarkup, /Taxa de pagamento \(5%\)/);
+  assert.match(walletMarkup, /Continuar para o Mercado Pago/);
+  assert.match(walletMarkup, /Últimas movimentações/);
+  assert.match(walletMarkup, /R\$\s*50,00/);
 
   for (const tag of ["div", "section", "button", "form", "header", "footer"]) {
     const opening = (main.innerHTML.match(new RegExp(`<${tag}(?:\\s|>)`, "g")) || []).length;
