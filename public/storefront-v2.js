@@ -198,6 +198,10 @@
     return '<div class="store-dialog-backdrop" data-store-purchase-modal hidden><section class="store-dialog store-purchase-dialog" role="dialog" aria-modal="true" aria-label="Finalizar assinatura"><div class="store-dialog-heading"><div><small>FINALIZAR COMPRA</small><h2 data-store-purchase-name>Assinatura</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div class="store-purchase-summary"><span>Valor da assinatura</span><strong data-store-purchase-price>—</strong></div><form data-store-subscription-order><input type="hidden" name="productId"><label><span>E-mail que receberá a assinatura</span><input type="email" name="deliveryEmail" inputmode="email" autocomplete="email" maxlength="254" placeholder="seuemail@exemplo.com" required><small>Confira com atenção. Os dados serão preparados pelo administrador e enviados para este e-mail.</small></label><button type="submit" class="store-purchase-submit">' + storeIcon("wallet") + '<span>Finalizar com a carteira</span></button></form></section></div>';
   }
 
+  function walletModal() {
+    return '<div class="store-dialog-backdrop" data-store-wallet-modal hidden><section class="store-dialog store-purchase-dialog store-wallet-dialog" role="dialog" aria-modal="true" aria-label="Adicionar saldo à carteira"><div data-store-wallet-content><div class="store-dialog-loading"><span class="spinner"></span> Carregando carteira…</div></div></section></div>';
+  }
+
   function ordersModal() {
     return '<div class="store-dialog-backdrop" data-store-orders-modal hidden><section class="store-dialog store-orders-dialog" role="dialog" aria-modal="true" aria-label="Pedidos de assinatura"><div class="store-dialog-heading"><div><small>MINHA CONTA</small><h2>Assinaturas</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div data-store-orders-list><div class="store-dialog-loading"><span class="spinner"></span> Carregando pedidos…</div></div></section></div>';
   }
@@ -241,11 +245,11 @@
 
     main.innerHTML =
       '<a class="store-promo" href="#store-catalog-start" data-store-scroll="store-catalog-start">CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS! ❤️</a>' +
-      '<header class="store-reference-header"><div class="store-header-inner"><div class="store-header-left">' + moreMenu(current) + '<button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button></div><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-store-whatsapp aria-label="Abrir suporte no WhatsApp">' + storeIcon("headset") + '</button><button type="button" class="store-header-wallet" data-nav="wallet" aria-label="Abrir carteira e adicionar saldo. Saldo atual: ' + escapeHtml(balance) + '">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + '</span></button><button type="button" class="store-icon-button" data-store-open-profile aria-label="Abrir perfil">' + storeIcon("user") + "</button></div></div></header>" +
+      '<header class="store-reference-header"><div class="store-header-inner"><div class="store-header-left">' + moreMenu(current) + '<button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button></div><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-store-whatsapp aria-label="Abrir suporte no WhatsApp">' + storeIcon("headset") + '</button><button type="button" class="store-header-wallet" data-store-open-wallet aria-label="Abrir carteira e adicionar saldo. Saldo atual: ' + escapeHtml(balance) + '">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + '</span></button><button type="button" class="store-icon-button" data-store-open-profile aria-label="Abrir perfil">' + storeIcon("user") + "</button></div></div></header>" +
       '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-community>' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-store-whatsapp>' + storeIcon("headset") + ' Suporte</button></div></div></section>' +
       featuredSection + catalogSection("Assinaturas", subscriptions, "subscriptions") + categorySections +
-      '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-nav="wallet" aria-label="Abrir carteira e adicionar saldo">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
-      searchModal(catalog.products) + purchaseModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal();
+      '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-store-open-wallet aria-label="Abrir carteira e adicionar saldo">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
+      searchModal(catalog.products) + purchaseModal() + walletModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal();
   }
 
   async function enhanceMemberHome(main) {
@@ -648,6 +652,117 @@
     }, 150);
   }
 
+  function walletTransactionMarkup(item) {
+    const type = String(item.type || item.kind || "movimentação").toLowerCase();
+    const amount = Number(item.amount || item.value || 0);
+    const isDebit = amount < 0 || type.includes("debit") || type.includes("order") || type.includes("pedido") || type.includes("subscription");
+    const labels = { deposit: "Depósito aprovado", credit: "Crédito", debit: "Pedido", order: "Pedido", refund: "Estorno", subscription_order: "Assinatura" };
+    const label = item.description || labels[type] || "Movimentação da carteira";
+    return '<article class="store-wallet-transaction"><span class="store-wallet-transaction-icon ' + (isDebit ? "debit" : "credit") + '">' + storeIcon(isDebit ? "cart" : "wallet") + '</span><div><b>' + escapeHtml(label) + '</b><small>' + escapeHtml(dateTime(item.createdAt || item.date)) + '</small></div><strong class="' + (isDebit ? "debit" : "credit") + '">' + (isDebit ? "−" : "+") + money(Math.abs(amount)) + "</strong></article>";
+  }
+
+  function walletContentMarkup(wallet) {
+    const transactions = Array.isArray(wallet?.transactions) ? wallet.transactions : [];
+    const history = transactions.length
+      ? '<div class="store-wallet-transactions">' + transactions.map(walletTransactionMarkup).join("") + "</div>"
+      : '<div class="store-wallet-empty">' + storeIcon("history") + '<div><b>Nenhuma movimentação</b><small>Seus depósitos e pagamentos aparecerão aqui.</small></div></div>';
+    return dialogHeading("MINHA CARTEIRA", "Adicionar saldo") +
+      '<section class="store-wallet-balance-card"><span class="store-wallet-balance-icon">' + storeIcon("wallet") + '</span><div><small>SALDO DISPONÍVEL</small><strong>' + money(wallet?.balance || 0) + '</strong></div><span class="store-wallet-status"><i></i> INDIVIDUAL</span></section>' +
+      '<form class="store-wallet-form" data-store-wallet-deposit>' +
+        '<div class="store-wallet-form-heading"><div><small>NOVO DEPÓSITO</small><h3>Quanto deseja adicionar?</h3></div><span>Taxa de 5%</span></div>' +
+        '<div class="store-wallet-quick-values" aria-label="Valores sugeridos"><button type="button" data-store-wallet-value="10" aria-pressed="false">R$ 10</button><button type="button" data-store-wallet-value="20" aria-pressed="false">R$ 20</button><button type="button" data-store-wallet-value="50" aria-pressed="false">R$ 50</button><button type="button" data-store-wallet-value="100" aria-pressed="false">R$ 100</button></div>' +
+        '<label class="store-wallet-amount-field"><span>Valor que entrará na carteira</span><div class="store-wallet-amount-control"><b>R$</b><input name="amount" type="number" inputmode="decimal" min="5" max="100000" step="0.01" placeholder="0,00" data-store-wallet-amount required></div><small>O valor mínimo para adicionar é R$ 5,00.</small></label>' +
+        '<div class="store-wallet-fee-summary" aria-live="polite"><div><span>Crédito na carteira</span><strong data-store-wallet-credit>R$ 0,00</strong></div><div><span>Taxa de pagamento (5%)</span><strong data-store-wallet-fee>R$ 0,00</strong></div><div><span>Total a pagar</span><strong data-store-wallet-total>R$ 0,00</strong></div></div>' +
+        '<div class="store-wallet-payment-note">' + storeIcon("shield") + '<p><b>Pagamento protegido</b><small>O saldo é liberado automaticamente após a confirmação do Mercado Pago.</small></p></div>' +
+        '<button type="submit" class="store-purchase-submit">' + storeIcon("wallet") + '<span>Continuar para o Mercado Pago</span></button>' +
+      '</form>' +
+      '<section class="store-wallet-history"><div class="store-wallet-history-heading"><div><small>HISTÓRICO</small><h3>Últimas movimentações</h3></div><button type="button" data-store-wallet-refresh aria-label="Atualizar carteira">Atualizar</button></div>' + history + "</section>";
+  }
+
+  function walletErrorMarkup(message) {
+    return dialogHeading("MINHA CARTEIRA", "Adicionar saldo") + '<div class="store-dialog-empty store-wallet-error">' + storeIcon("wallet") + '<h3>Não foi possível carregar</h3><p>' + escapeHtml(message) + '</p><button type="button" class="store-purchase-submit" data-store-wallet-retry>Carregar novamente</button></div>';
+  }
+
+  function updateStorefrontWalletBalance(value) {
+    const formatted = money(value);
+    document.querySelectorAll("[data-store-open-wallet]").forEach(function (button) {
+      const label = button.querySelector("span");
+      if (label) label.textContent = formatted;
+      button.setAttribute("aria-label", "Abrir carteira e adicionar saldo. Saldo atual: " + formatted);
+    });
+  }
+
+  function updateWalletDepositPreview(input) {
+    const form = input?.closest("[data-store-wallet-deposit]");
+    if (!form) return;
+    const amount = Number(String(input.value || "0").replace(",", "."));
+    const credit = Number.isFinite(amount) && amount > 0 ? amount : 0;
+    const fee = credit * .05;
+    const creditNode = form.querySelector("[data-store-wallet-credit]");
+    const feeNode = form.querySelector("[data-store-wallet-fee]");
+    const totalNode = form.querySelector("[data-store-wallet-total]");
+    if (creditNode) creditNode.textContent = money(credit);
+    if (feeNode) feeNode.textContent = money(fee);
+    if (totalNode) totalNode.textContent = money(credit + fee);
+    form.querySelectorAll("[data-store-wallet-value]").forEach(function (button) {
+      button.setAttribute("aria-pressed", Math.abs(Number(button.dataset.storeWalletValue) - credit) < .005 ? "true" : "false");
+    });
+  }
+
+  async function loadWalletDialog(modal) {
+    const host = modal?.querySelector("[data-store-wallet-content]");
+    if (!host) return;
+    host.innerHTML = dialogHeading("MINHA CARTEIRA", "Adicionar saldo") + '<div class="store-dialog-loading"><span class="spinner"></span> Carregando carteira…</div>';
+    try {
+      const wallet = await api("/api/wallet");
+      if (!document.body.contains(host)) return;
+      host.innerHTML = walletContentMarkup(wallet);
+      updateStorefrontWalletBalance(wallet.balance);
+      updateWalletDepositPreview(host.querySelector("[data-store-wallet-amount]"));
+    } catch (error) {
+      if (document.body.contains(host)) host.innerHTML = walletErrorMarkup(error.message);
+    }
+  }
+
+  async function openWallet() {
+    closeMoreMenu();
+    const modal = document.querySelector("[data-store-wallet-modal]");
+    if (!modal) return;
+    openDialog(modal);
+    await loadWalletDialog(modal);
+    setTimeout(function () { modal.querySelector("[data-store-wallet-amount]")?.focus(); }, 180);
+  }
+
+  function randomWalletDepositKey() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    return "deposit-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+
+  async function handleWalletDeposit(form) {
+    const amount = Number(String(form.elements.amount.value || "").replace(",", "."));
+    if (!Number.isFinite(amount) || amount < 5 || amount > 100000) {
+      toast("Informe um valor entre R$ 5,00 e R$ 100.000,00.", true);
+      form.elements.amount.focus();
+      return;
+    }
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.dataset.label = button.innerHTML; button.textContent = "Criando pagamento…"; }
+    try {
+      const payment = await api("/api/wallet/deposits", {
+        method: "POST",
+        body: { amount: Number(amount.toFixed(2)), feePercent: 5, idempotencyKey: randomWalletDepositKey() },
+      });
+      const url = payment.checkoutUrl || payment.initPoint || payment.paymentUrl || payment.ticketUrl;
+      if (!url) throw new Error("Pagamento criado, mas o servidor não retornou o link do Mercado Pago.");
+      toast("Pagamento criado. O saldo será liberado após a aprovação.");
+      window.location.href = url;
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Continuar para o Mercado Pago"; }
+    }
+  }
+
   function openSubscriptionCheckout(target) {
     const modal = document.querySelector("[data-store-purchase-modal]");
     const form = modal?.querySelector("[data-store-subscription-order]");
@@ -762,6 +877,13 @@
   }
 
   document.addEventListener("submit", function (event) {
+    const walletDeposit = event.target.closest("[data-store-wallet-deposit]");
+    if (walletDeposit) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      handleWalletDeposit(walletDeposit);
+      return;
+    }
     const smmOrder = event.target.closest("[data-store-smm-order]");
     if (smmOrder) {
       event.preventDefault();
@@ -829,6 +951,11 @@
   });
 
   document.addEventListener("input", function (event) {
+    const walletAmount = event.target.closest("[data-store-wallet-amount]");
+    if (walletAmount) {
+      updateWalletDepositPreview(walletAmount);
+      return;
+    }
     const smmQuantity = event.target.closest("[data-store-smm-quantity]");
     if (smmQuantity) {
       updateSmmCharge(smmQuantity);
@@ -887,6 +1014,30 @@
     if (openProfileButton) {
       event.preventDefault();
       openProfile();
+      return;
+    }
+    const openWalletButton = event.target.closest("[data-store-open-wallet]");
+    if (openWalletButton) {
+      event.preventDefault();
+      openWallet();
+      return;
+    }
+    const walletRetry = event.target.closest("[data-store-wallet-retry], [data-store-wallet-refresh]");
+    if (walletRetry) {
+      event.preventDefault();
+      loadWalletDialog(walletRetry.closest("[data-store-wallet-modal]"));
+      return;
+    }
+    const walletValue = event.target.closest("[data-store-wallet-value]");
+    if (walletValue) {
+      event.preventDefault();
+      const form = walletValue.closest("[data-store-wallet-deposit]");
+      const input = form?.querySelector("[data-store-wallet-amount]");
+      if (input) {
+        input.value = walletValue.dataset.storeWalletValue || "";
+        updateWalletDepositPreview(input);
+        input.focus();
+      }
       return;
     }
     const whatsapp = event.target.closest("[data-store-whatsapp]");
