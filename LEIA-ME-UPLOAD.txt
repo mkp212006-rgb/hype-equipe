@@ -1,22 +1,26 @@
-ATUALIZAÇÃO — MEUS PEDIDOS + COMUNIDADE DISCORD
+ATUALIZAÇÃO — DETALHES DAS ASSINATURAS + CARRINHO
 
-Para atualizar manualmente o repositório, substitua os arquivos mantendo exatamente estes caminhos:
+Extraia este pacote e substitua os arquivos mantendo exatamente estes caminhos:
 
 1. public/index.html
 2. public/storefront-v2.css
 3. public/storefront-v2.js
-4. test/app.test.js
-5. test/storefront-render.test.js
-6. README_STOREFRONT_V2.md
+4. src/storefront-features.js
+5. test/app.test.js
+6. test/storefront-render.test.js
+7. README_STOREFRONT_V2.md
 
-O que foi atualizado:
+FUNCIONALIDADES INCLUÍDAS
 
-- "Minhas assinaturas" passou a se chamar "Meus pedidos".
-- "Meus pedidos" reúne compras de serviços SMM, assinaturas e acessos VPN.
-- Os pedidos são exibidos do mais recente para o mais antigo, com status, valores e dados entregues.
-- Foi incluído um botão para atualizar a lista de pedidos.
-- O ícone da Comunidade foi corrigido para o símbolo oficial do Discord.
-- O botão Comunidade direciona para https://discord.gg/86dEVzSTZE.
-- A versão dos arquivos no index.html foi atualizada para evitar cache antigo no navegador.
+- Qualquer produto de Assinaturas abre uma página completa de detalhes.
+- A página possui imagem, nome, selo, preço, periodicidade, descrição, benefícios e produtos similares.
+- A descrição é cadastrada e editada pelo administrador, com até 5.000 caracteres.
+- Botões Comprar agora e Adicionar ao carrinho.
+- Carrinho persistente por cliente, com contador, remoção, limpeza, total e checkout.
+- Até 20 assinaturas diferentes por carrinho.
+- Checkout único usando o e-mail informado pelo cliente.
+- Compra do carrinho processada de forma atômica: todos os pedidos são criados ou nenhum valor é debitado.
+- Cada assinatura comprada aparece separadamente em Meus pedidos e em Entregas no painel administrativo.
+- Versão dos arquivos atualizada no index.html para evitar cache antigo.
 
-Não é necessário alterar arquivos do backend: o repositório já possui as três rotas usadas pela nova consulta.
+Depois do upload, o Railway executará a atualização usando a estrutura e o banco já existentes no projeto.
