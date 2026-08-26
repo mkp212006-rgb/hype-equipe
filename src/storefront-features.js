@@ -86,6 +86,23 @@ function uuidValue(value, label) {
   return result;
 }
 
+function subscriptionCartProductIds(value) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 20) {
+    throw new HttpError(400, "O carrinho deve ter entre 1 e 20 assinaturas.");
+  }
+  const unique = [];
+  const seen = new Set();
+  for (const item of value) {
+    const id = uuidValue(item, "Produto do carrinho");
+    if (!seen.has(id)) {
+      seen.add(id);
+      unique.push(id);
+    }
+  }
+  if (!unique.length) throw new HttpError(400, "O carrinho está vazio.");
+  return unique;
+}
+
 function encryptionKey(secret) {
   return createHash("sha256").update(String(secret)).digest();
 }
@@ -434,6 +451,82 @@ export async function createStorefrontFeatures({ config, db }) {
     }
   });
 
+  router.post("/api/subscription-orders/cart", authenticate, requireRole("member"), async (req, res) => {
+    const productIds = subscriptionCartProductIds(req.body?.productIds);
+    const deliveryEmail = normalizeDeliveryEmail(req.body?.deliveryEmail);
+    const idempotencyKey = cleanText(req.body?.idempotencyKey, "Chave do carrinho", { min: 12, max: 96 });
+    const orderKeys = productIds.map((_, index) => `${idempotencyKey}:${index + 1}`);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query(
+        "SELECT * FROM subscription_orders WHERE idempotency_key = ANY($1::text[]) FOR UPDATE",
+        [orderKeys],
+      );
+      if (existing.rowCount) {
+        if (existing.rowCount !== orderKeys.length) throw new HttpError(409, "Este carrinho já foi processado parcialmente. Atualize seus pedidos.");
+        const byKey = new Map(existing.rows.map((row) => [row.idempotency_key, row]));
+        const matchesRequest = orderKeys.every((key, index) => {
+          const row = byKey.get(key);
+          return row && row.username === req.storeAuth.sub && String(row.product_id || "") === productIds[index];
+        });
+        if (!matchesRequest) throw new HttpError(409, "Chave do carrinho já utilizada.");
+        const wallet = await client.query("SELECT balance FROM wallets WHERE username=$1", [req.storeAuth.sub]);
+        await client.query("COMMIT");
+        return res.json({
+          orders: orderKeys.map((key) => subscriptionOrderFromRow(byKey.get(key), config)),
+          balance: wallet.rowCount ? Number(wallet.rows[0].balance) : null,
+          repeated: true,
+        });
+      }
+
+      const productResult = await client.query(
+        "SELECT * FROM catalog_products WHERE id = ANY($1::uuid[]) AND enabled=TRUE FOR SHARE",
+        [productIds],
+      );
+      const productsById = new Map(productResult.rows.map((row) => [String(row.id), row]));
+      const products = productIds.map((id) => productsById.get(id));
+      if (products.some((product) => !product)) {
+        throw new HttpError(404, "Uma das assinaturas do carrinho não está mais disponível.");
+      }
+
+      const totalBRL = Number(products.reduce((total, product) => total + Number(product.price_brl), 0).toFixed(2));
+      const wallet = await client.query("SELECT balance FROM wallets WHERE username=$1 FOR UPDATE", [req.storeAuth.sub]);
+      if (!wallet.rowCount) throw new HttpError(404, "Carteira não encontrada.");
+      const balance = Number(wallet.rows[0].balance);
+      if (balance + 0.00001 < totalBRL) throw new HttpError(402, "Saldo insuficiente para finalizar o carrinho.");
+      const newBalance = Number((balance - totalBRL).toFixed(2));
+      await client.query("UPDATE wallets SET balance=$2, updated_at=NOW() WHERE username=$1", [req.storeAuth.sub, newBalance]);
+
+      const created = [];
+      for (let index = 0; index < products.length; index += 1) {
+        const product = products[index];
+        const orderId = randomUUID();
+        const priceBRL = Number(product.price_brl);
+        const order = await client.query(
+          `INSERT INTO subscription_orders (
+            id,idempotency_key,product_id,username,product_name,price_brl,delivery_email,status,wallet_debited
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',TRUE) RETURNING *`,
+          [orderId, orderKeys[index], product.id, req.storeAuth.sub, product.name, priceBRL, deliveryEmail],
+        );
+        await client.query(
+          `INSERT INTO wallet_transactions (id,username,type,amount,description,reference)
+           VALUES ($1,$2,'subscription_order',$3,$4,$5)`,
+          [randomUUID(), req.storeAuth.sub, -priceBRL, `Assinatura: ${product.name}`, orderId],
+        );
+        created.push(subscriptionOrderFromRow(order.rows[0], config));
+      }
+
+      await client.query("COMMIT");
+      return res.status(201).json({ orders: created, balance: newBalance, totalBRL });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+
   router.get("/admin/subscription-orders", authenticate, requireRole("admin"), async (_req, res) => {
     const result = await pool.query("SELECT * FROM subscription_orders ORDER BY created_at DESC LIMIT 250");
     res.json(result.rows.map((row) => subscriptionOrderFromRow(row, config, { admin: true })));
@@ -545,7 +638,7 @@ export async function createStorefrontFeatures({ config, db }) {
     const product = {
       id: randomUUID(),
       name: cleanText(req.body?.name, "Nome", { min: 2, max: 90 }),
-      description: cleanText(req.body?.description, "Descrição", { max: 500 }),
+      description: cleanText(req.body?.description, "Descrição", { max: 5_000 }),
       categoryId: await categoryId(req.body?.categoryId),
       imageData: optionalImageData(req.body?.imageData) || "",
       badge: cleanText(req.body?.badge, "Selo", { max: 40 }),
@@ -569,7 +662,7 @@ export async function createStorefrontFeatures({ config, db }) {
     const values = [
       req.params.id,
       Object.hasOwn(req.body || {}, "name") ? cleanText(req.body.name, "Nome", { min: 2, max: 90 }) : row.name,
-      Object.hasOwn(req.body || {}, "description") ? cleanText(req.body.description, "Descrição", { max: 500 }) : row.description,
+      Object.hasOwn(req.body || {}, "description") ? cleanText(req.body.description, "Descrição", { max: 5_000 }) : row.description,
       Object.hasOwn(req.body || {}, "categoryId") ? await categoryId(req.body.categoryId) : row.category_id,
       imageData === undefined ? row.image_data : imageData,
       Object.hasOwn(req.body || {}, "badge") ? cleanText(req.body.badge, "Selo", { max: 40 }) : row.badge,
