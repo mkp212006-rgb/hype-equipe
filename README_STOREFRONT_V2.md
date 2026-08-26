@@ -18,7 +18,7 @@ A página inicial foi refeita usando o vídeo enviado como referência visual pr
 3. O valor é debitado da carteira e o pedido entra como **Pendente**.
 4. A nova aba **Entregas** mostra o pedido e o e-mail no painel administrativo.
 5. O administrador preenche login, senha, link e instruções, abre o e-mail e confirma o envio.
-6. O cliente acompanha o status e os dados entregues em **Minhas assinaturas**.
+6. O cliente acompanha serviços SMM, assinaturas e acessos VPN em **Meus pedidos**, incluindo status e dados entregues.
 
 Se a entrega não puder ser realizada, o administrador pode cancelar o pedido e estornar o valor para a carteira. Os dados fornecidos pelo administrador são criptografados antes de serem armazenados.
 
