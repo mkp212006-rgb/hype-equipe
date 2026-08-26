@@ -2,6 +2,7 @@
   "use strict";
 
   const SESSION_KEY = "tw-store.session.v3";
+  const CART_KEY = "tw-store.subscription-cart.v1";
   const WHATSAPP_URL = "https://wa.me/5512983087742";
   const DISCORD_URL = "https://discord.gg/86dEVzSTZE";
   const runtime = window.TW_STORE_CONFIG || {};
@@ -161,6 +162,71 @@
     return products.filter(function (product) { return Number(product.categoryId) === Number(category.id); });
   }
 
+  function subscriptionProduct(productId) {
+    return memberProducts.find(function (product) {
+      return product.kind === "subscription" && String(product.sourceId) === String(productId);
+    });
+  }
+
+  function cartOwner() {
+    const current = session() || {};
+    return String(current.username || current.sub || "");
+  }
+
+  function storedCartIds() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(CART_KEY) || "null");
+      if (!stored || stored.owner !== cartOwner() || !Array.isArray(stored.productIds)) return [];
+      return Array.from(new Set(stored.productIds.map(String))).slice(0, 20);
+    } catch {
+      return [];
+    }
+  }
+
+  function cartProducts() {
+    return storedCartIds().map(subscriptionProduct).filter(Boolean);
+  }
+
+  function saveCartIds(productIds) {
+    const available = Array.from(new Set((productIds || []).map(String))).filter(function (id) {
+      return Boolean(subscriptionProduct(id));
+    }).slice(0, 20);
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify({ owner: cartOwner(), productIds: available }));
+    } catch { /* o carrinho continuará disponível durante esta tela */ }
+    updateCartBadges();
+    return available;
+  }
+
+  function updateCartBadges() {
+    const count = cartProducts().length;
+    document.querySelectorAll("[data-store-cart-count]").forEach(function (badge) {
+      badge.textContent = String(count);
+      badge.hidden = count < 1;
+    });
+    document.querySelectorAll("[data-store-open-cart]").forEach(function (button) {
+      button.setAttribute("aria-label", count ? `Abrir carrinho com ${count} ${count === 1 ? "item" : "itens"}` : "Abrir carrinho vazio");
+    });
+  }
+
+  function addSubscriptionToCart(productId) {
+    const product = subscriptionProduct(productId);
+    if (!product) return toast("Esta assinatura não está mais disponível.", true);
+    const ids = storedCartIds();
+    if (ids.includes(String(product.sourceId))) {
+      updateCartBadges();
+      return toast("Esta assinatura já está no carrinho.");
+    }
+    if (ids.length >= 20) return toast("O carrinho aceita até 20 assinaturas.", true);
+    ids.push(String(product.sourceId));
+    saveCartIds(ids);
+    toast("Assinatura adicionada ao carrinho.");
+  }
+
+  function removeSubscriptionFromCart(productId) {
+    saveCartIds(storedCartIds().filter(function (id) { return id !== String(productId); }));
+  }
+
   function sectionHeading(title) {
     return '<div class="store-video-section-heading"><i></i><h2>' + escapeHtml(title) + "</h2><i></i></div>";
   }
@@ -227,7 +293,15 @@
   }
 
   function purchaseModal() {
-    return '<div class="store-dialog-backdrop" data-store-purchase-modal hidden><section class="store-dialog store-purchase-dialog" role="dialog" aria-modal="true" aria-label="Finalizar assinatura"><div class="store-dialog-heading"><div><small>FINALIZAR COMPRA</small><h2 data-store-purchase-name>Assinatura</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div class="store-purchase-summary"><span>Valor da assinatura</span><strong data-store-purchase-price>—</strong></div><form data-store-subscription-order><input type="hidden" name="productId"><label><span>E-mail que receberá a assinatura</span><input type="email" name="deliveryEmail" inputmode="email" autocomplete="email" maxlength="254" placeholder="seuemail@exemplo.com" required><small>Confira com atenção. Os dados serão preparados pelo administrador e enviados para este e-mail.</small></label><button type="submit" class="store-purchase-submit">' + storeIcon("wallet") + '<span>Finalizar com a carteira</span></button></form></section></div>';
+    return '<div class="store-dialog-backdrop" data-store-purchase-modal hidden><section class="store-dialog store-purchase-dialog store-checkout-dialog" role="dialog" aria-modal="true" aria-label="Finalizar compra"><div class="store-dialog-heading"><div><small>FINALIZAR COMPRA</small><h2 data-store-purchase-name>Revisar pedido</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div class="store-checkout-items" data-store-purchase-items></div><div class="store-purchase-summary"><span>Total do pedido</span><strong data-store-purchase-price>—</strong></div><form data-store-subscription-order><input type="hidden" name="productIds"><label><span>E-mail que receberá as assinaturas</span><input type="email" name="deliveryEmail" inputmode="email" autocomplete="email" maxlength="254" placeholder="seuemail@exemplo.com" required><small>Confira com atenção. Os dados de cada assinatura serão preparados pelo administrador e também ficarão disponíveis em Meus pedidos.</small></label><button type="submit" class="store-purchase-submit">' + storeIcon("wallet") + '<span>Finalizar com a carteira</span></button></form></section></div>';
+  }
+
+  function subscriptionDetailModal() {
+    return '<div class="store-dialog-backdrop store-product-detail-backdrop" data-store-subscription-detail-modal hidden><section class="store-dialog store-subscription-detail-dialog" role="dialog" aria-modal="true" aria-label="Detalhes da assinatura"><div data-store-subscription-detail-content></div></section></div>';
+  }
+
+  function cartModal() {
+    return '<div class="store-dialog-backdrop" data-store-cart-modal hidden><section class="store-dialog store-cart-dialog" role="dialog" aria-modal="true" aria-label="Carrinho de compras"><div data-store-cart-content></div></section></div>';
   }
 
   function walletModal() {
@@ -254,6 +328,77 @@
     return '<div class="store-dialog-backdrop" data-store-smm-modal hidden><section class="store-dialog store-smm-detail-dialog" role="dialog" aria-modal="true" aria-label="Fazer pedido SMM"><div data-store-smm-content></div></section></div>';
   }
 
+  function cartCountMarkup(className) {
+    const count = cartProducts().length;
+    return '<span class="' + escapeHtml(className || "store-cart-count") + '" data-store-cart-count ' + (count ? "" : "hidden") + '>' + count + "</span>";
+  }
+
+  function subscriptionSimilarCard(product) {
+    return '<button type="button" class="store-subscription-similar-card" data-store-subscription="' + escapeHtml(product.sourceId) + '" aria-label="Abrir ' + escapeHtml(product.name) + '"><span class="store-subscription-similar-media">' + productImage(product, "store-subscription-similar-image") + '</span><span><b>' + escapeHtml(product.name) + '</b><small>' + escapeHtml(product.billingLabel || product.priceLabel || "Assinatura digital") + '</small><strong>' + money(product.priceBRL) + "</strong></span></button>";
+  }
+
+  function subscriptionDetailMarkup(product) {
+    const description = String(product.description || "").trim();
+    const similar = memberProducts.filter(function (item) {
+      return item.kind === "subscription" && String(item.sourceId) !== String(product.sourceId);
+    }).slice(0, 4);
+    const badge = product.badge
+      ? '<span class="store-subscription-badge store-subscription-badge-featured">' + storeIcon("star") + escapeHtml(product.badge) + "</span>"
+      : '<span class="store-subscription-badge">' + storeIcon("check") + " Assinatura digital</span>";
+    const similarMarkup = similar.length
+      ? '<section class="store-subscription-similar"><div class="store-subscription-section-title"><small>CONTINUE EXPLORANDO</small><h3>Produtos similares</h3></div><div class="store-subscription-similar-grid">' + similar.map(subscriptionSimilarCard).join("") + "</div></section>"
+      : "";
+    return '<header class="store-subscription-detail-header"><button type="button" data-store-close-dialog aria-label="Voltar">' + storeIcon("back") + '</button><div><img src="./tw-store-icon.png" alt="Tw Store"><b>Tw Store</b><span>' + storeIcon("check") + '</span></div><button type="button" class="store-subscription-cart-shortcut" data-store-open-cart aria-label="Abrir carrinho">' + storeIcon("cart") + cartCountMarkup("store-cart-count") + "</button></header>" +
+      '<div class="store-subscription-detail-body"><section class="store-subscription-purchase-card"><div class="store-subscription-detail-media">' + productImage(product, "store-subscription-detail-image") + '</div><div class="store-subscription-detail-summary"><small class="store-subscription-eyebrow">ASSINATURA TW STORE</small><h2>' + escapeHtml(product.name) + '</h2><div class="store-subscription-badges">' + badge + '<span class="store-subscription-badge store-subscription-badge-delivery">' + storeIcon("zap") + ' Entrega pelo painel</span></div><strong class="store-subscription-price">' + money(product.priceBRL) + '<small>' + escapeHtml(product.billingLabel || product.priceLabel || "Pagamento único") + '</small></strong><div class="store-subscription-choice" aria-label="Produto selecionado"><span>' + storeIcon("check") + '</span><div><b>' + escapeHtml(product.name) + '</b><small>Disponível para compra</small></div><strong>' + money(product.priceBRL) + '</strong></div><div class="store-subscription-actions"><button type="button" class="store-subscription-buy" data-store-subscription-buy="' + escapeHtml(product.sourceId) + '">' + storeIcon("wallet") + '<span>Comprar agora</span></button><button type="button" class="store-subscription-add-cart" data-store-add-cart="' + escapeHtml(product.sourceId) + '">' + storeIcon("cart") + '<span>Adicionar ao carrinho</span></button></div></div></section>' +
+      '<section class="store-subscription-description"><div class="store-subscription-section-title"><small>CONHEÇA O PRODUTO</small><h3>Descrição</h3></div><div class="store-subscription-description-card">' + (description ? '<p>' + multiline(description) + "</p>" : '<div class="store-subscription-description-empty">' + storeIcon("info") + '<p>O administrador ainda não adicionou a descrição deste produto.</p></div>') + "</div></section>" +
+      '<section class="store-subscription-benefits"><article>' + storeIcon("box") + '<div><b>Entrega acompanhada</b><small>Consulte o andamento e os dados recebidos em Meus pedidos.</small></div></article><article>' + storeIcon("shield") + '<div><b>Compra protegida</b><small>O pagamento é confirmado com segurança usando o saldo da sua carteira.</small></div></article><article>' + storeIcon("ticket") + '<div><b>Suporte disponível</b><small>Se precisar, abra um ticket e acompanhe o atendimento pela sua conta.</small></div></article></section>' + similarMarkup + "</div>";
+  }
+
+  function openSubscriptionDetail(target) {
+    const productId = typeof target === "string" ? target : target?.dataset?.storeSubscription;
+    const product = subscriptionProduct(productId);
+    if (!product) return toast("Esta assinatura não está mais disponível.", true);
+    const modal = document.querySelector("[data-store-subscription-detail-modal]");
+    const host = modal?.querySelector("[data-store-subscription-detail-content]");
+    if (!modal || !host) return;
+    const previous = target?.closest?.(".store-dialog-backdrop");
+    if (previous && previous !== modal) closeDialog(previous);
+    host.innerHTML = subscriptionDetailMarkup(product);
+    openDialog(modal);
+    const scroller = modal.querySelector(".store-subscription-detail-dialog");
+    if (scroller) scroller.scrollTop = 0;
+    updateCartBadges();
+  }
+
+  function cartItemMarkup(product) {
+    return '<article class="store-cart-item"><span class="store-cart-item-media">' + productImage(product, "store-cart-item-image") + '</span><div><b>' + escapeHtml(product.name) + '</b><small>' + escapeHtml(product.billingLabel || product.priceLabel || "Assinatura digital") + '</small><strong>' + money(product.priceBRL) + '</strong></div><button type="button" data-store-remove-cart="' + escapeHtml(product.sourceId) + '" aria-label="Remover ' + escapeHtml(product.name) + ' do carrinho">' + storeIcon("close") + "</button></article>";
+  }
+
+  function cartContentMarkup() {
+    const items = cartProducts();
+    if (!items.length) {
+      return dialogHeading("SUAS ASSINATURAS", "Carrinho") + '<div class="store-cart-empty">' + storeIcon("cart") + '<h3>Seu carrinho está vazio</h3><p>Abra uma assinatura e toque em Adicionar ao carrinho.</p><button type="button" data-store-close-dialog>Continuar comprando</button></div>';
+    }
+    const total = items.reduce(function (sum, product) { return sum + Number(product.priceBRL || 0); }, 0);
+    return dialogHeading("SUAS ASSINATURAS", "Carrinho") + '<div class="store-cart-toolbar"><span>' + items.length + ' ' + (items.length === 1 ? "item" : "itens") + '</span><button type="button" data-store-clear-cart>Limpar carrinho</button></div><div class="store-cart-list">' + items.map(cartItemMarkup).join("") + '</div><div class="store-cart-total"><span>Total</span><strong>' + money(total) + '</strong></div><div class="store-cart-actions"><button type="button" class="store-subscription-buy" data-store-cart-checkout>' + storeIcon("wallet") + '<span>Finalizar compra</span></button><small>O valor será debitado da sua carteira somente após a confirmação.</small></div>';
+  }
+
+  function renderCartDialog() {
+    const modal = document.querySelector("[data-store-cart-modal]");
+    const host = modal?.querySelector("[data-store-cart-content]");
+    if (host) host.innerHTML = cartContentMarkup();
+    updateCartBadges();
+  }
+
+  function openCart(source) {
+    const modal = document.querySelector("[data-store-cart-modal]");
+    if (!modal) return;
+    const previous = source?.closest?.(".store-dialog-backdrop");
+    if (previous && previous !== modal) closeDialog(previous);
+    renderCartDialog();
+    openDialog(modal);
+  }
+
   function renderMemberStorefront(main, payload) {
     if (!document.body.contains(main)) return;
     const catalog = normalizedCatalog(payload);
@@ -277,11 +422,12 @@
 
     main.innerHTML =
       '<a class="store-promo" href="#store-catalog-start" data-store-scroll="store-catalog-start">CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS! ❤️</a>' +
-      '<header class="store-reference-header"><div class="store-header-inner"><div class="store-header-left">' + moreMenu(current) + '<button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button></div><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-store-whatsapp aria-label="Abrir suporte no WhatsApp">' + storeIcon("headset") + '</button><button type="button" class="store-header-wallet" data-store-open-wallet aria-label="Abrir carteira e adicionar saldo. Saldo atual: ' + escapeHtml(balance) + '">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + '</span></button><button type="button" class="store-icon-button" data-store-open-profile aria-label="Abrir perfil">' + storeIcon("user") + "</button></div></div></header>" +
+      '<header class="store-reference-header"><div class="store-header-inner"><div class="store-header-left">' + moreMenu(current) + '<button type="button" class="store-brand" data-store-scroll="store-hero-start"><img src="./tw-store-icon.png" alt="Ícone Tw Store"><b>Tw Store</b><span class="store-verified">' + storeIcon("check") + '</span></button></div><div class="store-header-actions"><button type="button" class="store-icon-button" data-store-open-search aria-label="Buscar">' + storeIcon("search") + '</button><button type="button" class="store-icon-button" data-store-whatsapp aria-label="Abrir suporte no WhatsApp">' + storeIcon("headset") + '</button><button type="button" class="store-header-wallet" data-store-open-wallet aria-label="Abrir carteira e adicionar saldo. Saldo atual: ' + escapeHtml(balance) + '">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + '</span></button><button type="button" class="store-icon-button store-cart-trigger" data-store-open-cart aria-label="Abrir carrinho">' + storeIcon("cart") + cartCountMarkup("store-cart-count") + '</button><button type="button" class="store-icon-button" data-store-open-profile aria-label="Abrir perfil">' + storeIcon("user") + "</button></div></div></header>" +
       '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-community>' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-store-whatsapp>' + storeIcon("headset") + ' Suporte</button></div></div></section>' +
       featuredSection + catalogSection("Assinaturas", subscriptions, "subscriptions") + categorySections +
       '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-store-open-wallet aria-label="Abrir carteira e adicionar saldo">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
-      searchModal(catalog.products) + purchaseModal() + walletModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal();
+      searchModal(catalog.products) + subscriptionDetailModal() + cartModal() + purchaseModal() + walletModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal();
+    updateCartBadges();
   }
 
   async function enhanceMemberHome(main) {
@@ -328,7 +474,7 @@
   function subscriptionEditor(product, categories) {
     return '<details class="store-admin-details store-media-item" data-store-admin-item data-search="' + escapeHtml([product.name, product.categoryName, "assinatura"].join(" ").toLowerCase()) + '"><summary><span>' + productImage(product, "store-category-thumb") + '</span><b>' + escapeHtml(product.name) + '</b><small>' + escapeHtml(product.categoryName) + " • " + money(product.priceBRL) + "</small></summary>" +
       '<form class="store-admin-form" data-store-form="subscription-edit" data-id="' + escapeHtml(product.sourceId) + '">' + imageAdminField(product) +
-        '<label>Nome<input name="name" maxlength="90" value="' + escapeHtml(product.name) + '" required /></label><label>Descrição<textarea name="description" maxlength="500">' + escapeHtml(product.description || "") + "</textarea></label>" +
+        '<label>Nome<input name="name" maxlength="90" value="' + escapeHtml(product.name) + '" required /></label><label>Descrição da página do produto<textarea name="description" maxlength="5000" rows="10" placeholder="Informe detalhes, regras, prazos, garantia e tudo o que o cliente precisa saber">' + escapeHtml(product.description || "") + '</textarea><small>Este texto aparecerá completo quando o cliente abrir a assinatura.</small></label>' +
         '<label>Categoria<select name="categoryId">' + categoryOptions(categories, product.categoryId) + "</select></label>" +
         '<div class="store-admin-form-grid"><label>Preço (R$)<input name="priceBRL" type="number" min="0.01" step="0.01" value="' + escapeHtml(Number(product.priceBRL).toFixed(2)) + '" required /></label><label>Periodicidade<input name="billingLabel" maxlength="40" value="' + escapeHtml(product.billingLabel || "") + '" placeholder="Ex.: por mês" /></label><label>Selo<input name="badge" maxlength="40" value="' + escapeHtml(product.badge || "") + '" /></label><label>Ordem<input name="sortOrder" type="number" min="0" value="' + escapeHtml(product.sortOrder || 0) + '" /></label></div>' +
         '<p class="store-admin-delivery-note">A compra será debitada da carteira e enviada para a aba <b>Entregas</b> com o e-mail informado pelo cliente.</p>' +
@@ -346,7 +492,7 @@
       '<details class="card store-admin-section" open><summary><h3>Organizar catálogos</h3><span>Nome, foto, descrição e ordem</span></summary><form class="store-category-create" data-store-form="category-create"><input name="name" maxlength="50" placeholder="Ex.: Assinaturas" required /><button type="submit">Criar catálogo</button></form><div class="store-admin-list">' + (categories.length ? categories.map(categoryManager).join("") : '<p class="store-admin-empty">Crie o primeiro catálogo acima para começar.</p>') + "</div></details>" +
       '<details class="card store-admin-section"><summary><h3>Novo produto de assinatura</h3><span>Cadastro manual com foto e valor fixo</span></summary><form class="store-admin-form store-subscription-create" data-store-form="subscription-create">' +
         imageAdminField({ name: "Assinatura", imageData: "" }) +
-        '<label>Nome do produto<input name="name" maxlength="90" placeholder="Ex.: Assinatura Premium" required /></label><label>Descrição<textarea name="description" maxlength="500" placeholder="Explique o que está incluído"></textarea></label><label>Categoria<select name="categoryId">' + categoryOptions(categories, "") + "</select></label>" +
+        '<label>Nome do produto<input name="name" maxlength="90" placeholder="Ex.: Assinatura Premium" required /></label><label>Descrição da página do produto<textarea name="description" maxlength="5000" rows="10" placeholder="Informe detalhes, regras, prazos, garantia e tudo o que o cliente precisa saber"></textarea><small>Você poderá editar esta descrição sempre que precisar.</small></label><label>Categoria<select name="categoryId">' + categoryOptions(categories, "") + "</select></label>" +
         '<div class="store-admin-form-grid"><label>Preço (R$)<input name="priceBRL" type="number" min="0.01" step="0.01" placeholder="29,90" required /></label><label>Periodicidade<input name="billingLabel" maxlength="40" placeholder="Ex.: por mês" /></label><label>Selo<input name="badge" maxlength="40" placeholder="Ex.: Mais vendido" /></label><label>Ordem<input name="sortOrder" type="number" min="0" value="0" /></label></div>' +
         '<p class="store-admin-delivery-note">Não é necessário cadastrar link. O cliente informa o e-mail e o pedido entra na aba <b>Entregas</b>.</p>' +
         '<label class="store-check"><input name="featured" type="checkbox" /><span>Colocar em Produtos em destaque</span></label><button class="store-save-button" type="submit">Adicionar assinatura</button></form></details>' +
@@ -795,16 +941,27 @@
     }
   }
 
-  function openSubscriptionCheckout(target) {
+  function openSubscriptionCheckout(productIds, source) {
     const modal = document.querySelector("[data-store-purchase-modal]");
     const form = modal?.querySelector("[data-store-subscription-order]");
     if (!modal || !form) return;
-    const previous = target.closest(".store-dialog-backdrop");
+    const requestedIds = (Array.isArray(productIds) ? productIds : [productIds]).map(String);
+    const products = requestedIds.map(subscriptionProduct).filter(Boolean);
+    if (!products.length || products.length !== requestedIds.length) return toast("Uma das assinaturas não está mais disponível.", true);
+    const previous = source?.closest?.(".store-dialog-backdrop");
     if (previous && previous !== modal) closeDialog(previous);
     form.reset();
-    form.elements.productId.value = target.dataset.storeSubscription || "";
-    modal.querySelector("[data-store-purchase-name]").textContent = target.dataset.storeProductName || "Assinatura";
-    modal.querySelector("[data-store-purchase-price]").textContent = money(target.dataset.storeProductPrice);
+    form.elements.productIds.value = products.map(function (product) { return product.sourceId; }).join(",");
+    form.dataset.idempotencyKey = randomOrderKey();
+    const total = products.reduce(function (sum, product) { return sum + Number(product.priceBRL || 0); }, 0);
+    const title = modal.querySelector("[data-store-purchase-name]");
+    const totalNode = modal.querySelector("[data-store-purchase-price]");
+    const itemsHost = modal.querySelector("[data-store-purchase-items]");
+    if (title) title.textContent = products.length === 1 ? products[0].name : `${products.length} assinaturas`;
+    if (totalNode) totalNode.textContent = money(total);
+    if (itemsHost) itemsHost.innerHTML = products.map(function (product) {
+      return '<article><span>' + productImage(product, "store-checkout-item-image") + '</span><div><b>' + escapeHtml(product.name) + '</b><small>' + escapeHtml(product.billingLabel || product.priceLabel || "Assinatura digital") + '</small></div><strong>' + money(product.priceBRL) + "</strong></article>";
+    }).join("");
     openDialog(modal);
     setTimeout(function () { form.elements.deliveryEmail.focus(); }, 180);
   }
@@ -922,19 +1079,29 @@
   }
 
   async function handleSubscriptionOrder(form) {
+    const productIds = String(form.elements.productIds.value || "").split(",").map(function (id) { return id.trim(); }).filter(Boolean);
+    if (!productIds.length) return toast("O pedido não possui assinaturas.", true);
     const button = form.querySelector('button[type="submit"]');
     if (button) { button.disabled = true; button.dataset.label = button.innerHTML; button.textContent = "Finalizando…"; }
     try {
-      await api("/api/subscription-orders", {
+      const endpoint = productIds.length > 1 ? "/api/subscription-orders/cart" : "/api/subscription-orders";
+      const body = {
+        deliveryEmail: form.elements.deliveryEmail.value,
+        idempotencyKey: form.dataset.idempotencyKey || randomOrderKey(),
+      };
+      if (productIds.length > 1) body.productIds = productIds;
+      else body.productId = productIds[0];
+      const result = await api(endpoint, {
         method: "POST",
-        body: {
-          productId: form.elements.productId.value,
-          deliveryEmail: form.elements.deliveryEmail.value,
-          idempotencyKey: randomOrderKey(),
-        },
+        body: body,
       });
+      removeSubscriptionFromCart(productIds[0]);
+      if (productIds.length > 1) saveCartIds(storedCartIds().filter(function (id) { return !productIds.includes(id); }));
+      if (Number.isFinite(Number(result.balance))) updateStorefrontWalletBalance(Number(result.balance));
+      delete form.dataset.idempotencyKey;
       closeDialog(form.closest("[data-store-purchase-modal]"));
-      toast("Compra finalizada. O administrador recebeu o pedido de assinatura.");
+      renderCartDialog();
+      toast(productIds.length === 1 ? "Compra finalizada. Consulte a assinatura em Meus pedidos." : "Carrinho finalizado. Todas as assinaturas estão em Meus pedidos.");
       setTimeout(openMemberOrders, 180);
     } catch (error) {
       toast(error.message, true);
@@ -1136,6 +1303,12 @@
       openWallet();
       return;
     }
+    const openCartButton = event.target.closest("[data-store-open-cart]");
+    if (openCartButton) {
+      event.preventDefault();
+      openCart(openCartButton);
+      return;
+    }
     const walletRetry = event.target.closest("[data-store-wallet-retry], [data-store-wallet-refresh]");
     if (walletRetry) {
       event.preventDefault();
@@ -1272,10 +1445,43 @@
       closeDialog(vpn.closest(".store-dialog-backdrop"));
       return;
     }
+    const subscriptionBuy = event.target.closest("[data-store-subscription-buy]");
+    if (subscriptionBuy) {
+      event.preventDefault();
+      openSubscriptionCheckout(subscriptionBuy.dataset.storeSubscriptionBuy, subscriptionBuy);
+      return;
+    }
+    const addCart = event.target.closest("[data-store-add-cart]");
+    if (addCart) {
+      event.preventDefault();
+      addSubscriptionToCart(addCart.dataset.storeAddCart);
+      return;
+    }
+    const removeCart = event.target.closest("[data-store-remove-cart]");
+    if (removeCart) {
+      event.preventDefault();
+      removeSubscriptionFromCart(removeCart.dataset.storeRemoveCart);
+      renderCartDialog();
+      return;
+    }
+    const clearCart = event.target.closest("[data-store-clear-cart]");
+    if (clearCart) {
+      event.preventDefault();
+      saveCartIds([]);
+      renderCartDialog();
+      toast("Carrinho limpo.");
+      return;
+    }
+    const cartCheckout = event.target.closest("[data-store-cart-checkout]");
+    if (cartCheckout) {
+      event.preventDefault();
+      openSubscriptionCheckout(cartProducts().map(function (product) { return product.sourceId; }), cartCheckout);
+      return;
+    }
     const subscription = event.target.closest("[data-store-subscription]");
     if (subscription) {
       event.preventDefault();
-      openSubscriptionCheckout(subscription);
+      openSubscriptionDetail(subscription);
       return;
     }
     const remove = event.target.closest("[data-store-remove-image]");
