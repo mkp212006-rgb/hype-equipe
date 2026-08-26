@@ -3,6 +3,7 @@
 
   const SESSION_KEY = "tw-store.session.v3";
   const WHATSAPP_URL = "https://wa.me/5512983087742";
+  const DISCORD_URL = "https://discord.gg/86dEVzSTZE";
   const runtime = window.TW_STORE_CONFIG || {};
   const API_URL = runtime.apiBaseUrl || window.location.origin;
   const REQUEST_TIMEOUT_MS = Number(runtime.requestTimeoutMs) || 15_000;
@@ -109,7 +110,7 @@
       cart: '<circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6"/>',
       check: '<path d="M20 6 9 17l-5-5"/>',
       close: '<path d="m6 6 12 12M18 6 6 18"/>',
-      discord: '<path d="M8 8.5a9 9 0 0 1 8 0l1.5 7a10 10 0 0 1-3 1.5l-.7-1.1a7 7 0 0 0 1.2-.6M9 15.3a7 7 0 0 0 6 0M6.5 15.5l1.5-7M9.5 12.5h.01M14.5 12.5h.01"/>',
+      discord: '<path fill="currentColor" stroke="none" d="M20.317 4.37a19.8 19.8 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.445.865-.608 1.25a18.3 18.3 0 0 0-5.487 0 12.6 12.6 0 0 0-.618-1.25.077.077 0 0 0-.078-.037A19.7 19.7 0 0 0 3.677 4.37a.07.07 0 0 0-.032.028C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.508 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 12.9 12.9 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.892.076.076 0 0 0-.041.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.548-13.66a.061.061 0 0 0-.031-.03ZM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419s.956-2.419 2.157-2.419c1.21 0 2.176 1.095 2.157 2.419 0 1.333-.956 2.419-2.157 2.419Zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419s.955-2.419 2.157-2.419c1.21 0 2.176 1.095 2.157 2.419 0 1.333-.946 2.419-2.157 2.419Z"/>',
       headset: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19c0 1.1-.9 2-2 2h-3"/><rect x="3" y="13" width="4" height="6" rx="2"/><rect x="17" y="13" width="4" height="6" rx="2"/>',
       history: '<circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2M4 5v4h4"/>',
       info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
@@ -234,11 +235,11 @@
   }
 
   function ordersModal() {
-    return '<div class="store-dialog-backdrop" data-store-orders-modal hidden><section class="store-dialog store-orders-dialog" role="dialog" aria-modal="true" aria-label="Pedidos de assinatura"><div class="store-dialog-heading"><div><small>MINHA CONTA</small><h2>Assinaturas</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div data-store-orders-list><div class="store-dialog-loading"><span class="spinner"></span> Carregando pedidos…</div></div></section></div>';
+    return '<div class="store-dialog-backdrop" data-store-orders-modal hidden><section class="store-dialog store-orders-dialog" role="dialog" aria-modal="true" aria-label="Meus pedidos"><div class="store-dialog-heading"><div><small>MINHA CONTA</small><h2>Meus pedidos</h2></div><button type="button" data-store-close-dialog aria-label="Fechar">' + storeIcon("close") + '</button></div><div data-store-orders-list><div class="store-dialog-loading"><span class="spinner"></span> Carregando pedidos…</div></div></section></div>';
   }
 
   function moreMenu(current) {
-    return '<div class="store-more-wrap"><button type="button" class="store-icon-button store-menu-button" data-store-toggle-more aria-label="Abrir menu" aria-expanded="false">' + storeIcon("more") + '</button><div class="store-more-menu" data-store-more-menu role="menu" hidden><div class="store-more-account"><span>' + escapeHtml(initials(current.member || current.username)) + '</span><div><b>' + escapeHtml(current.member || "Cliente") + '</b><small>@' + escapeHtml(current.username || "cliente") + '</small></div></div><button type="button" data-store-open-profile role="menuitem">' + storeIcon("user") + '<span><b>Perfil</b><small>Conta, foto e senha</small></span></button><button type="button" data-store-open-orders role="menuitem">' + storeIcon("cart") + '<span><b>Minhas assinaturas</b><small>Pedidos e dados recebidos</small></span></button><button type="button" data-store-open-tickets role="menuitem">' + storeIcon("ticket") + '<span><b>Meus tickets</b><small>Acompanhar atendimentos</small></span></button><button type="button" data-store-whatsapp role="menuitem">' + storeIcon("headset") + '<span><b>Suporte</b><small>Abrir conversa no WhatsApp</small></span></button><button type="button" class="store-more-logout" data-store-logout role="menuitem">' + storeIcon("logout") + '<span><b>Sair</b><small>Desconectar da conta</small></span></button></div></div>';
+    return '<div class="store-more-wrap"><button type="button" class="store-icon-button store-menu-button" data-store-toggle-more aria-label="Abrir menu" aria-expanded="false">' + storeIcon("more") + '</button><div class="store-more-menu" data-store-more-menu role="menu" hidden><div class="store-more-account"><span>' + escapeHtml(initials(current.member || current.username)) + '</span><div><b>' + escapeHtml(current.member || "Cliente") + '</b><small>@' + escapeHtml(current.username || "cliente") + '</small></div></div><button type="button" data-store-open-profile role="menuitem">' + storeIcon("user") + '<span><b>Perfil</b><small>Conta, foto e senha</small></span></button><button type="button" data-store-open-orders role="menuitem">' + storeIcon("cart") + '<span><b>Meus pedidos</b><small>Todas as compras e dados recebidos</small></span></button><button type="button" data-store-open-tickets role="menuitem">' + storeIcon("ticket") + '<span><b>Meus tickets</b><small>Acompanhar atendimentos</small></span></button><button type="button" data-store-whatsapp role="menuitem">' + storeIcon("headset") + '<span><b>Suporte</b><small>Abrir conversa no WhatsApp</small></span></button><button type="button" class="store-more-logout" data-store-logout role="menuitem">' + storeIcon("logout") + '<span><b>Sair</b><small>Desconectar da conta</small></span></button></div></div>';
   }
 
   function profileModal() {
@@ -620,13 +621,13 @@
     try {
       const order = await api("/api/orders", { method: "POST", body: { serviceId: Number(product.sourceId), link: form.elements.link.value, quantity: quantity, paymentMethod: "wallet", displayedRateBRL: Number(product.priceBRL), idempotencyKey: randomOrderKey() } });
       const host = form.closest("[data-store-smm-content]");
-      if (host) host.innerHTML = dialogHeading("PEDIDO CONFIRMADO", "Tudo certo!") + '<div class="store-smm-success">' + storeIcon("check") + '<h3>Pedido enviado com sucesso</h3><p>O serviço <b>' + escapeHtml(product.name) + '</b> já foi encaminhado para processamento.</p><div><span>Pedido</span><strong>#' + escapeHtml(String(order.providerOrderId || order.id || "").slice(0, 12)) + '</strong></div><button type="button" class="store-purchase-submit" data-store-close-dialog>Fechar</button></div>';
+      if (host) host.innerHTML = dialogHeading("PEDIDO CONFIRMADO", "Tudo certo!") + '<div class="store-smm-success">' + storeIcon("check") + '<h3>Pedido enviado com sucesso</h3><p>O serviço <b>' + escapeHtml(product.name) + '</b> já foi encaminhado para processamento.</p><div><span>Pedido</span><strong>#' + escapeHtml(String(order.providerOrderId || order.id || "").slice(0, 12)) + '</strong></div><button type="button" class="store-purchase-submit" data-store-open-orders>Ver em Meus pedidos</button></div>';
       try {
         const wallet = await api("/api/wallet");
         const footerBalance = document.querySelector(".store-video-footer [data-store-open-profile] span");
         if (footerBalance) footerBalance.textContent = money(wallet.balance);
       } catch { /* o pedido já foi confirmado; saldo será atualizado na próxima carga */ }
-      toast("Pedido SMM criado com sucesso.");
+      toast("Pedido criado. Consulte o andamento em Meus pedidos.");
     } catch (error) {
       toast(error.message, true);
     } finally {
@@ -819,20 +820,102 @@
     const delivered = order.status === "fulfilled" && order.deliveryData
       ? '<div class="store-order-delivery"><span>Dados enviados</span><pre>' + escapeHtml(order.deliveryData) + "</pre></div>"
       : order.status === "pending" ? '<p>O administrador está preparando os dados da sua assinatura.</p>' : '<p>O valor foi devolvido para a sua carteira.</p>';
-    return '<article class="store-order-card"><div class="store-order-head"><div><small>' + escapeHtml(new Date(order.createdAt).toLocaleString("pt-BR")) + '</small><h3>' + escapeHtml(order.productName) + '</h3></div><span class="' + status.className + '">' + status.label + '</span></div><dl><div><dt>Valor</dt><dd>' + money(order.priceBRL) + '</dd></div><div><dt>E-mail de entrega</dt><dd>' + escapeHtml(order.deliveryEmail) + "</dd></div></dl>" + delivered + "</article>";
+    return '<article class="store-order-card" data-store-order-type="subscription"><div class="store-order-head"><div><small class="store-order-kind">ASSINATURA</small><small>' + escapeHtml(dateTime(order.createdAt)) + '</small><h3>' + escapeHtml(order.productName) + '</h3></div><span class="' + status.className + '">' + status.label + '</span></div><dl><div><dt>Valor</dt><dd>' + money(order.priceBRL) + '</dd></div><div><dt>E-mail de entrega</dt><dd>' + escapeHtml(order.deliveryEmail) + "</dd></div></dl>" + delivered + "</article>";
   }
 
-  async function openSubscriptionOrders() {
+  function smmOrderStatus(order) {
+    const key = String(order.status || "pending").toLowerCase();
+    if (key === "completed") return { label: "Concluído", className: "fulfilled" };
+    if (["canceled", "cancelled", "error"].includes(key)) return { label: key === "error" ? "Não processado" : "Cancelado", className: "refunded" };
+    if (key === "partial") return { label: "Parcial", className: "pending" };
+    if (key === "cancel requested") return { label: "Cancelamento solicitado", className: "pending" };
+    if (["processing", "in progress"].includes(key)) return { label: "Em andamento", className: "pending" };
+    return { label: "Pendente", className: "pending" };
+  }
+
+  function orderAmount(order) {
+    const values = [order.chargeBRL, order.amountBRL, order.priceBRL, order.estimatedChargeBRL, order.estimatedCharge];
+    for (const value of values) {
+      const number = Number(value);
+      if (Number.isFinite(number)) return number;
+    }
+    return NaN;
+  }
+
+  function smmOrderCard(order) {
+    const status = smmOrderStatus(order);
+    const reference = order.providerOrderId || String(order.id || "").slice(0, 8).toUpperCase() || "—";
+    const destination = order.link
+      ? '<div class="store-order-reference"><span>Link enviado</span><a href="' + escapeHtml(order.link) + '" target="_blank" rel="noopener noreferrer">Abrir destino</a></div>'
+      : "";
+    const note = String(order.status || "").toLowerCase() === "error"
+      ? '<p>O pedido não foi processado e o valor foi devolvido para a carteira.</p>'
+      : "";
+    return '<article class="store-order-card" data-store-order-type="smm"><div class="store-order-head"><div><small class="store-order-kind">SERVIÇO SMM</small><small>' + escapeHtml(dateTime(order.createdAt)) + '</small><h3>' + escapeHtml(order.serviceName || "Serviço digital") + '</h3></div><span class="' + status.className + '">' + status.label + '</span></div><dl><div><dt>Pedido</dt><dd>#' + escapeHtml(reference) + '</dd></div><div><dt>Quantidade</dt><dd>' + escapeHtml(order.quantity == null ? "—" : order.quantity) + '</dd></div><div><dt>Valor</dt><dd>' + money(orderAmount(order)) + '</dd></div><div><dt>Restante</dt><dd>' + escapeHtml(order.remains == null ? "—" : order.remains) + "</dd></div></dl>" + destination + note + "</article>";
+  }
+
+  function vpnOrderStatus(order) {
+    const key = String(order.status || "submitting").toLowerCase();
+    if (key === "active") return { label: "Ativo", className: "fulfilled" };
+    if (["refunded", "error"].includes(key)) return { label: key === "refunded" ? "Estornado" : "Erro", className: "refunded" };
+    return { label: "Processando", className: "pending" };
+  }
+
+  function vpnOrderCard(order) {
+    const status = vpnOrderStatus(order);
+    const credentials = [];
+    if (order.login) credentials.push("Usuário: " + order.login);
+    if (order.password) credentials.push("Senha: " + order.password);
+    if (order.uuid) credentials.push("UUID: " + order.uuid);
+    const access = credentials.length
+      ? '<div class="store-order-delivery"><span>Dados do acesso</span><pre>' + escapeHtml(credentials.join("\n")) + "</pre></div>"
+      : order.error ? '<p>' + escapeHtml(order.error) + '</p>' : '<p>O acesso está sendo preparado e aparecerá aqui quando estiver disponível.</p>';
+    const validity = order.providerExpiresText || (order.expiresAt ? dateTime(order.expiresAt) : "—");
+    return '<article class="store-order-card" data-store-order-type="vpn"><div class="store-order-head"><div><small class="store-order-kind">ACESSO VPN</small><small>' + escapeHtml(dateTime(order.createdAt)) + '</small><h3>' + escapeHtml(order.productName || "Acesso VPN") + '</h3></div><span class="' + status.className + '">' + status.label + '</span></div><dl><div><dt>Valor</dt><dd>' + money(order.priceBRL) + '</dd></div><div><dt>Protocolo</dt><dd>' + escapeHtml(String(order.accessType || "ssh").toUpperCase()) + '</dd></div><div><dt>Plano</dt><dd>' + escapeHtml(order.durationDays || "—") + ' dias</dd></div><div><dt>Validade</dt><dd>' + escapeHtml(validity) + "</dd></div></dl>" + access + "</article>";
+  }
+
+  function memberOrderCard(order) {
+    if (order.storeOrderType === "smm") return smmOrderCard(order);
+    if (order.storeOrderType === "vpn") return vpnOrderCard(order);
+    return subscriptionOrderCard(order);
+  }
+
+  function mergedMemberOrders(results) {
+    const types = ["smm", "subscription", "vpn"];
+    const orders = [];
+    results.forEach(function (result, index) {
+      if (result.status !== "fulfilled" || !Array.isArray(result.value)) return;
+      result.value.forEach(function (order) { orders.push({ ...order, storeOrderType: types[index] }); });
+    });
+    return orders.sort(function (a, b) {
+      const left = new Date(a.createdAt || 0).getTime();
+      const right = new Date(b.createdAt || 0).getTime();
+      return (Number.isFinite(right) ? right : 0) - (Number.isFinite(left) ? left : 0);
+    });
+  }
+
+  async function openMemberOrders() {
     const modal = document.querySelector("[data-store-orders-modal]");
     const host = modal?.querySelector("[data-store-orders-list]");
     if (!modal || !host) return;
     host.innerHTML = '<div class="store-dialog-loading"><span class="spinner"></span> Carregando pedidos…</div>';
     openDialog(modal);
     try {
-      const orders = await api("/api/subscription-orders");
-      host.innerHTML = Array.isArray(orders) && orders.length
-        ? '<div class="store-order-list">' + orders.map(subscriptionOrderCard).join("") + "</div>"
-        : '<div class="store-dialog-empty">' + storeIcon("history") + '<h3>Nenhuma assinatura comprada</h3><p>Seus pedidos aparecerão aqui.</p></div>';
+      const results = await Promise.allSettled([
+        api("/api/orders"),
+        api("/api/subscription-orders"),
+        api("/api/vpn/orders"),
+      ]);
+      const availableSources = results.filter(function (result) { return result.status === "fulfilled"; });
+      if (!availableSources.length) throw results.find(function (result) { return result.status === "rejected"; })?.reason || new Error("Não foi possível carregar seus pedidos.");
+      const orders = mergedMemberOrders(results);
+      const unavailableSources = results.filter(function (result) { return result.status === "rejected" && Number(result.reason?.status) !== 404; }).length;
+      const toolbar = '<div class="store-order-toolbar"><span>' + orders.length + ' pedido' + (orders.length === 1 ? "" : "s") + '</span><button type="button" data-store-refresh-orders>' + storeIcon("history") + ' Atualizar</button></div>';
+      const content = orders.length
+        ? '<div class="store-order-list">' + orders.map(memberOrderCard).join("") + "</div>"
+        : '<div class="store-dialog-empty">' + storeIcon("history") + '<h3>Nenhum pedido realizado</h3><p>Suas compras de serviços, assinaturas e VPN aparecerão aqui.</p></div>';
+      const warning = unavailableSources ? '<p class="store-order-warning">Alguns tipos de pedido não puderam ser atualizados agora. Tente novamente.</p>' : "";
+      host.innerHTML = toolbar + content + warning;
     } catch (error) {
       host.innerHTML = '<div class="store-dialog-empty"><h3>Não foi possível carregar</h3><p>' + escapeHtml(error.message) + "</p></div>";
     }
@@ -852,7 +935,7 @@
       });
       closeDialog(form.closest("[data-store-purchase-modal]"));
       toast("Compra finalizada. O administrador recebeu o pedido de assinatura.");
-      setTimeout(openSubscriptionOrders, 180);
+      setTimeout(openMemberOrders, 180);
     } catch (error) {
       toast(error.message, true);
     } finally {
@@ -1088,7 +1171,19 @@
     if (openOrders) {
       event.preventDefault();
       closeMoreMenu();
-      openSubscriptionOrders();
+      const previousDialog = openOrders.closest(".store-dialog-backdrop");
+      if (previousDialog && !previousDialog.matches("[data-store-orders-modal]")) {
+        closeDialog(previousDialog);
+        setTimeout(openMemberOrders, 170);
+      } else {
+        openMemberOrders();
+      }
+      return;
+    }
+    const refreshOrders = event.target.closest("[data-store-refresh-orders]");
+    if (refreshOrders) {
+      event.preventDefault();
+      openMemberOrders();
       return;
     }
     const supportMode = event.target.closest("[data-store-support-mode]");
@@ -1134,7 +1229,7 @@
     const community = event.target.closest("[data-store-community]");
     if (community) {
       event.preventDefault();
-      toast("O acesso da comunidade será publicado aqui pela Tw Store.");
+      window.location.href = DISCORD_URL;
       return;
     }
     const carouselDot = event.target.closest("[data-store-carousel-dot]");
