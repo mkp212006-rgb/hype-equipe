@@ -139,7 +139,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
   assert.match(html, /theme-color" content="#000000"/);
-  assert.match(html, /20260826-orders-discord/);
+  assert.match(html, /20260826-subscription-cart/);
 
   const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
@@ -152,6 +152,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   const stylesheetSource = await stylesheet.text();
   const scriptSource = await script.text();
   const adminScriptSource = await adminScript.text();
+  const storefrontBackendSource = await readFile(new URL("../src/storefront-features.js", import.meta.url), "utf8");
   assert.match(stylesheetSource, /store-reference-header/);
   assert.match(stylesheetSource, /store-feature-grid/);
   assert.match(stylesheetSource, /store-header-left/);
@@ -163,15 +164,20 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(stylesheetSource, /store-video-dots>button/);
   assert.match(stylesheetSource, /store-order-toolbar/);
   assert.match(stylesheetSource, /store-order-kind/);
+  assert.match(stylesheetSource, /store-subscription-detail-dialog/);
+  assert.match(stylesheetSource, /store-subscription-description-card/);
+  assert.match(stylesheetSource, /store-cart-dialog/);
+  assert.match(stylesheetSource, /store-cart-count/);
   assert.match(stylesheetSource, /store-more-menu/);
   assert.match(stylesheetSource, /store-profile-dialog/);
   assert.match(stylesheetSource, /store-support-dialog/);
   assert.match(stylesheetSource, /store-smm-detail-dialog/);
   assert.match(stylesheetSource, /#000/);
   assert.doesNotMatch(stylesheetSource, /store-mosaic/);
-  assert.doesNotMatch(stylesheetSource, /store-cart-button/);
+  assert.match(stylesheetSource, /store-cart-trigger/);
   assert.match(scriptSource, /\/api\/storefront/);
   assert.match(scriptSource, /\/api\/subscription-orders/);
+  assert.match(scriptSource, /\/api\/subscription-orders\/cart/);
   assert.match(scriptSource, /\/api\/vpn\/orders/);
   assert.match(scriptSource, /data-store-search/);
   assert.match(scriptSource, /data-store-toggle-more/);
@@ -196,6 +202,12 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(scriptSource, /class="store-header-wallet" data-store-open-wallet/);
   assert.match(scriptSource, /data-store-wallet-modal/);
   assert.match(scriptSource, /data-store-wallet-deposit/);
+  assert.match(scriptSource, /data-store-subscription-detail-modal/);
+  assert.match(scriptSource, /data-store-subscription-buy/);
+  assert.match(scriptSource, /data-store-add-cart/);
+  assert.match(scriptSource, /data-store-open-cart/);
+  assert.match(scriptSource, /data-store-cart-checkout/);
+  assert.match(scriptSource, /maxlength="5000"/);
   assert.match(scriptSource, /data-store-carousel/);
   assert.match(scriptSource, /data-store-carousel-dot/);
   assert.match(scriptSource, /updateStoreCarousel/);
@@ -207,9 +219,12 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.doesNotMatch(scriptSource, /data-nav="settings"/);
   assert.doesNotMatch(scriptSource, /function mosaicTile/);
   assert.doesNotMatch(scriptSource, /store-mosaic/);
-  assert.doesNotMatch(scriptSource, /store-cart-button/);
+  assert.match(scriptSource, /store-cart-trigger/);
   assert.match(scriptSource, /CLIQUE AQUI E GARANTA DESCONTOS EXCLUSIVOS/);
   assert.match(scriptSource, /tw-store-icon\.png/);
+  assert.match(storefrontBackendSource, /post\("\/api\/subscription-orders\/cart"/);
+  assert.match(storefrontBackendSource, /O carrinho deve ter entre 1 e 20 assinaturas/);
+  assert.match(storefrontBackendSource, /max: 5_000/);
   assert.match(adminScriptSource, /\/admin\/subscription-orders/);
   assert.match(adminScriptSource, /Entregas de assinaturas/);
 });

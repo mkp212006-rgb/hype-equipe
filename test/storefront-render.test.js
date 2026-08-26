@@ -5,15 +5,21 @@ import vm from "node:vm";
 
 test("renders the AMOLED Tw Store structure with balanced interactive markup", async () => {
   const original = await readFile(new URL("../public/storefront-v2.js", import.meta.url), "utf8");
-  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\nwindow.__memberOrderCard = memberOrderCard;\nwindow.__mergedMemberOrders = mergedMemberOrders;\n})();");
+  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\nwindow.__subscriptionDetailMarkup = subscriptionDetailMarkup;\nwindow.__cartContentMarkup = cartContentMarkup;\nwindow.__saveCartIds = saveCartIds;\nwindow.__memberOrderCard = memberOrderCard;\nwindow.__mergedMemberOrders = mergedMemberOrders;\n})();");
   const app = { querySelector: () => null };
   const classList = { add() {}, remove() {}, toggle() {} };
-  const storage = { getItem: () => JSON.stringify({ role: "member", username: "cliente", member: "Cliente" }), setItem() {}, removeItem() {} };
+  const storageValues = new Map([["tw-store.session.v3", JSON.stringify({ role: "member", username: "cliente", member: "Cliente" })]]);
+  const storage = {
+    getItem: (key) => storageValues.get(key) || null,
+    setItem: (key, value) => storageValues.set(key, String(value)),
+    removeItem: (key) => storageValues.delete(key),
+  };
   const document = {
     body: { contains: () => true, classList },
     getElementById: (id) => id === "app" ? app : { innerHTML: "" },
     addEventListener() {},
     querySelector: () => null,
+    querySelectorAll: () => [],
   };
   const window = {
     TW_STORE_CONFIG: {},
@@ -86,7 +92,7 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(main.innerHTML, /Bem Vindo\(a\)/);
   assert.match(main.innerHTML, /Produtos em Destaque/);
   assert.match(main.innerHTML, /data-store-subscription-order/);
-  assert.match(main.innerHTML, /E-mail que receberá a assinatura/);
+  assert.match(main.innerHTML, /E-mail que receberá as assinaturas/);
   assert.match(main.innerHTML, /data-store-toggle-more/);
   assert.match(main.innerHTML, /data-store-open-profile/);
   assert.match(main.innerHTML, /data-store-whatsapp/);
@@ -99,13 +105,16 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(main.innerHTML, /store-header-wallet/);
   assert.match(main.innerHTML, /class="store-header-wallet" data-store-open-wallet/);
   assert.match(main.innerHTML, /data-store-wallet-modal/);
+  assert.match(main.innerHTML, /data-store-subscription-detail-modal/);
+  assert.match(main.innerHTML, /data-store-cart-modal/);
+  assert.match(main.innerHTML, /data-store-open-cart/);
+  assert.match(main.innerHTML, /store-cart-trigger/);
   assert.match(main.innerHTML, /Abrir carteira e adicionar saldo/);
   assert.doesNotMatch(main.innerHTML, /class="store-header-wallet" data-nav="wallet"/);
   assert.match(main.innerHTML, /R\$ 50,00/);
   assert.match(main.innerHTML, /data-store-smm="101"/);
   assert.match(main.innerHTML, /data-store-smm-modal/);
   assert.doesNotMatch(main.innerHTML, /store-mosaic/);
-  assert.doesNotMatch(main.innerHTML, /store-cart-button/);
   assert.doesNotMatch(main.innerHTML, /data-nav="settings"/);
   assert.doesNotMatch(main.innerHTML, /data-nav="new-order"/);
   assert.doesNotMatch(main.innerHTML, /LMT Store/i);
@@ -121,6 +130,43 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(walletMarkup, /Continuar para o Mercado Pago/);
   assert.match(walletMarkup, /Últimas movimentações/);
   assert.match(walletMarkup, /R\$\s*50,00/);
+
+  const secondSubscription = {
+    ...subscription,
+    id: "subscription:22222222-2222-4222-8222-222222222222",
+    sourceId: "22222222-2222-4222-8222-222222222222",
+    name: "Spotify Premium",
+    description: "Música sem anúncios",
+    featured: false,
+  };
+  window.__setMemberProducts([subscription, secondSubscription, smm]);
+  const subscriptionDetail = window.__subscriptionDetailMarkup(subscription);
+  assert.match(subscriptionDetail, /Netflix Premium/);
+  assert.match(subscriptionDetail, /Conta mensal/);
+  assert.match(subscriptionDetail, /data-store-subscription-buy=/);
+  assert.match(subscriptionDetail, /data-store-add-cart=/);
+  assert.match(subscriptionDetail, /Entrega acompanhada/);
+  assert.match(subscriptionDetail, /Compra protegida/);
+  assert.match(subscriptionDetail, /Produtos similares/);
+  assert.match(subscriptionDetail, /Spotify Premium/);
+
+  window.__saveCartIds([subscription.sourceId, secondSubscription.sourceId]);
+  const cartMarkup = window.__cartContentMarkup();
+  assert.match(cartMarkup, /Carrinho/);
+  assert.match(cartMarkup, /2 itens/);
+  assert.match(cartMarkup, /Netflix Premium/);
+  assert.match(cartMarkup, /Spotify Premium/);
+  assert.match(cartMarkup, /data-store-remove-cart=/);
+  assert.match(cartMarkup, /data-store-cart-checkout/);
+  assert.match(cartMarkup, /R\$\s*19,80/);
+
+  for (const markup of [subscriptionDetail, cartMarkup]) {
+    for (const tag of ["div", "section", "article", "button", "span"]) {
+      const opening = (markup.match(new RegExp(`<${tag}(?:\\s|>)`, "g")) || []).length;
+      const closing = (markup.match(new RegExp(`</${tag}>`, "g")) || []).length;
+      assert.equal(opening, closing, `${tag} subscription/cart markup should be balanced`);
+    }
+  }
 
   const allOrderMarkup = [
     window.__memberOrderCard({
