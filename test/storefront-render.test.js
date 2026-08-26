@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 test("renders the AMOLED Tw Store structure with balanced interactive markup", async () => {
   const original = await readFile(new URL("../public/storefront-v2.js", import.meta.url), "utf8");
-  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\n})();");
+  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\nwindow.__memberOrderCard = memberOrderCard;\nwindow.__mergedMemberOrders = mergedMemberOrders;\n})();");
   const app = { querySelector: () => null };
   const classList = { add() {}, remove() {}, toggle() {} };
   const storage = { getItem: () => JSON.stringify({ role: "member", username: "cliente", member: "Cliente" }), setItem() {}, removeItem() {} };
@@ -91,6 +91,10 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(main.innerHTML, /data-store-open-profile/);
   assert.match(main.innerHTML, /data-store-whatsapp/);
   assert.match(main.innerHTML, /data-store-open-tickets/);
+  assert.match(main.innerHTML, /data-store-open-orders/);
+  assert.match(main.innerHTML, /Meus pedidos/);
+  assert.doesNotMatch(main.innerHTML, /Minhas assinaturas/);
+  assert.match(main.innerHTML, /data-store-community[\s\S]*?fill="currentColor" stroke="none"/);
   assert.match(main.innerHTML, /store-header-left/);
   assert.match(main.innerHTML, /store-header-wallet/);
   assert.match(main.innerHTML, /class="store-header-wallet" data-store-open-wallet/);
@@ -117,6 +121,59 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(walletMarkup, /Continuar para o Mercado Pago/);
   assert.match(walletMarkup, /Últimas movimentações/);
   assert.match(walletMarkup, /R\$\s*50,00/);
+
+  const allOrderMarkup = [
+    window.__memberOrderCard({
+      storeOrderType: "smm",
+      id: "smm-order-1",
+      providerOrderId: 987,
+      serviceName: "Seguidores Instagram",
+      quantity: 1000,
+      chargeBRL: 12.5,
+      remains: 300,
+      status: "In progress",
+      link: "https://instagram.com/twstore",
+      createdAt: "2026-08-25T13:00:00.000Z",
+    }),
+    window.__memberOrderCard({
+      storeOrderType: "subscription",
+      productName: "Netflix Premium",
+      priceBRL: 9.9,
+      deliveryEmail: "cliente@example.com",
+      deliveryData: "login: cliente",
+      status: "fulfilled",
+      createdAt: "2026-08-25T12:00:00.000Z",
+    }),
+    window.__memberOrderCard({
+      storeOrderType: "vpn",
+      productName: "VPN 30 dias",
+      priceBRL: 15,
+      durationDays: 30,
+      accessType: "ssh",
+      login: "twcliente",
+      password: "senha-segura",
+      status: "active",
+      createdAt: "2026-08-25T11:00:00.000Z",
+    }),
+  ].join("");
+  assert.match(allOrderMarkup, /SERVIÇO SMM/);
+  assert.match(allOrderMarkup, /ASSINATURA/);
+  assert.match(allOrderMarkup, /ACESSO VPN/);
+  assert.match(allOrderMarkup, /Abrir destino/);
+  assert.match(allOrderMarkup, /Dados enviados/);
+  assert.match(allOrderMarkup, /Dados do acesso/);
+  assert.match(allOrderMarkup, /senha-segura/);
+
+  const merged = window.__mergedMemberOrders([
+    { status: "fulfilled", value: [{ id: "smm-old", createdAt: "2026-08-23T10:00:00.000Z" }] },
+    { status: "fulfilled", value: [{ id: "subscription-new", createdAt: "2026-08-25T10:00:00.000Z" }] },
+    { status: "fulfilled", value: [{ id: "vpn-middle", createdAt: "2026-08-24T10:00:00.000Z" }] },
+  ]);
+  assert.equal(merged.length, 3);
+  assert.equal(merged[0].id, "subscription-new");
+  assert.equal(merged[0].storeOrderType, "subscription");
+  assert.equal(merged[1].storeOrderType, "vpn");
+  assert.equal(merged[2].storeOrderType, "smm");
 
   const carouselProducts = Array.from({ length: 5 }, (_item, index) => ({
     ...subscription,

@@ -139,7 +139,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
   assert.match(html, /theme-color" content="#000000"/);
-  assert.match(html, /20260825-horizontal-carousel-1230/);
+  assert.match(html, /20260826-orders-discord/);
 
   const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
@@ -161,6 +161,8 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(stylesheetSource, /store-video-product-page/);
   assert.match(stylesheetSource, /scroll-snap-type:x mandatory/);
   assert.match(stylesheetSource, /store-video-dots>button/);
+  assert.match(stylesheetSource, /store-order-toolbar/);
+  assert.match(stylesheetSource, /store-order-kind/);
   assert.match(stylesheetSource, /store-more-menu/);
   assert.match(stylesheetSource, /store-profile-dialog/);
   assert.match(stylesheetSource, /store-support-dialog/);
@@ -170,6 +172,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.doesNotMatch(stylesheetSource, /store-cart-button/);
   assert.match(scriptSource, /\/api\/storefront/);
   assert.match(scriptSource, /\/api\/subscription-orders/);
+  assert.match(scriptSource, /\/api\/vpn\/orders/);
   assert.match(scriptSource, /data-store-search/);
   assert.match(scriptSource, /data-store-toggle-more/);
   assert.match(scriptSource, /data-store-open-profile/);
@@ -185,6 +188,9 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(scriptSource, /\/api\/tickets/);
   assert.match(scriptSource, /\/api\/orders/);
   assert.match(scriptSource, /https:\/\/wa\.me\/5512983087742/);
+  assert.match(scriptSource, /https:\/\/discord\.gg\/86dEVzSTZE/);
+  assert.match(scriptSource, /Meus pedidos/);
+  assert.doesNotMatch(scriptSource, /Minhas assinaturas/);
   assert.match(scriptSource, /store-header-left/);
   assert.match(scriptSource, /store-header-wallet/);
   assert.match(scriptSource, /class="store-header-wallet" data-store-open-wallet/);
