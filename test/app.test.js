@@ -15,16 +15,20 @@ async function startTestServer() {
     token_version: 1,
     must_change_password: true,
   };
+  const member = {
+    username: "pessoa",
+    name: "Pessoa",
+    email: "pessoa@example.com",
+    password_hash: memberHash,
+    token_version: 1,
+    active: true,
+  };
   const fakeDb = {
     healthcheck: async () => {},
     getAdmin: async (username) => username === "admin" ? admin : null,
-    getUser: async (username) => username === "pessoa" ? {
-      username: "pessoa",
-      name: "Pessoa",
-      password_hash: memberHash,
-      token_version: 1,
-      active: true,
-    } : null,
+    getUser: async (username) => username === member.username ? member : null,
+    getUserByIdentifier: async (identifier) => [member.username, member.email].includes(identifier) ? member : null,
+    createUser: async ({ name, username, email }) => ({ name, username, email, token_version: 1, active: true }),
     recordAdminLogin: async () => {},
     recordUserLogin: async () => {},
     listServices: async () => [],
@@ -86,10 +90,55 @@ test("member login rejects an incorrect password", async (context) => {
   const response = await fetch(`${server.baseUrl}/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: "pessoa", password: "wrong-password" }),
+    body: JSON.stringify({ identifier: "pessoa", password: "wrong-password" }),
   });
   assert.equal(response.status, 401);
   assert.match((await response.json()).error, /incorreto/);
+});
+
+test("member login accepts either username or email with the same password", async (context) => {
+  const server = await startTestServer();
+  context.after(server.close);
+
+  const credentials = [
+    { identifier: "pessoa" },
+    { identifier: "pessoa@example.com" },
+    { username: "pessoa" },
+  ];
+  for (const credential of credentials) {
+    const response = await fetch(`${server.baseUrl}/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...credential, password: "member-password-123" }),
+    });
+    assert.equal(response.status, 200);
+    const session = await response.json();
+    assert.equal(session.username, "pessoa");
+    assert.equal(session.email, "pessoa@example.com");
+    assert.equal(session.role, "member");
+    assert.ok(session.token);
+  }
+});
+
+test("registration accepts a valid email and rejects an invalid one", async (context) => {
+  const server = await startTestServer();
+  context.after(server.close);
+
+  const valid = await fetch(`${server.baseUrl}/auth/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Nova Pessoa", username: "novapessoa", email: "nova@example.com", password: "senha-segura" }),
+  });
+  assert.equal(valid.status, 201);
+  assert.equal((await valid.json()).user.email, "nova@example.com");
+
+  const invalid = await fetch(`${server.baseUrl}/auth/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Nova Pessoa", username: "novapessoa", email: "email-invalido", password: "senha-segura" }),
+  });
+  assert.equal(invalid.status, 400);
+  assert.match((await invalid.json()).error, /e-mail válido/i);
 });
 
 test("serves the same-origin runtime configuration without stale asset caching", async (context) => {
@@ -101,6 +150,8 @@ test("serves the same-origin runtime configuration without stale asset caching",
   assert.match(home.headers.get("cache-control") || "", /no-cache/);
   const html = await home.text();
   assert.ok(html.indexOf("runtime-config.js") < html.indexOf("app.js"));
+  assert.match(html, /styles\.css\?v=20260827-login-email/);
+  assert.match(html, /app\.js\?v=20260827-login-email/);
 
   const runtime = await fetch(`${server.baseUrl}/runtime-config.js`);
   assert.equal(runtime.status, 200);
@@ -128,6 +179,26 @@ test("runtime configuration prefers the current origin and coalesces visual work
   assert.equal(frames.length, 1);
   frames[0]();
   assert.equal(calls, 1);
+});
+
+test("login assets expose the email-or-username flow and the new AMOLED layout", async () => {
+  const [appSource, stylesheetSource, databaseSource, supportSource] = await Promise.all([
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/db.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/support-features.js", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appSource, /auth-login-shell/);
+  assert.match(appSource, /name="identifier"/);
+  assert.match(appSource, /E-mail ou usuário/);
+  assert.match(appSource, /name="email" type="email"/);
+  assert.match(appSource, /body: \{ identifier, password: values\.password \}/);
+  assert.match(stylesheetSource, /\.auth-login-main::before/);
+  assert.match(stylesheetSource, /\.auth-login-card/);
+  assert.match(databaseSource, /users_email_ci_idx/);
+  assert.match(databaseSource, /getUserByIdentifier/);
+  assert.match(supportSource, /getUserByIdentifier\(identifier\)/);
 });
 
 test("serves the storefront layout assets from the same Railway origin", async (context) => {
