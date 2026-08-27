@@ -15,12 +15,17 @@ function bearerToken(req) {
   return authorization.slice(7).trim();
 }
 
-function cleanUsername(value) {
-  const username = String(value || "").trim().toLowerCase();
-  if (username.length < 1 || username.length > 80 || !/^[a-z0-9._-]+$/.test(username)) {
-    throw new HttpError(400, "Usuário inválido.");
+function cleanLoginIdentifier(value) {
+  const identifier = String(value || "").trim().toLowerCase();
+  const isEmail = identifier.includes("@");
+  const valid = isEmail
+    ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
+    : /^[a-z0-9._-]+$/.test(identifier);
+  const minimum = isEmail ? 5 : 1;
+  if (identifier.length < minimum || identifier.length > 254 || !valid) {
+    throw new HttpError(400, "Informe um e-mail ou usuário válido.");
   }
-  return username;
+  return identifier;
 }
 
 function makeSession(config, payload) {
@@ -182,10 +187,13 @@ export async function createSupportFeatures({ config, db }) {
 
   // Login único: o mesmo formulário identifica automaticamente cliente ou administrador.
   router.post("/auth/login", loginLimiter, async (req, res) => {
-    const username = cleanUsername(req.body?.username);
+    const identifier = cleanLoginIdentifier(req.body?.identifier ?? req.body?.username);
     const password = text(req.body?.password, "Senha", { minimum: 1, maximum: 256 });
 
-    const [admin, user] = await Promise.all([db.getAdmin(username), db.getUser(username)]);
+    const [admin, user] = await Promise.all([
+      db.getAdmin(identifier.includes("@") ? "" : identifier),
+      db.getUserByIdentifier(identifier),
+    ]);
     const adminValid = await verifySecret(password, admin?.password_hash || dummyPasswordHash);
 
     if (admin && adminValid) {
@@ -207,7 +215,7 @@ export async function createSupportFeatures({ config, db }) {
     }
 
     const userValid = await verifySecret(password, user?.password_hash || dummyPasswordHash);
-    if (!user || !user.active || !userValid) throw new HttpError(401, "Usuário ou senha incorretos.");
+    if (!user || !user.active || !userValid) throw new HttpError(401, "E-mail, usuário ou senha incorretos.");
 
     await db.recordUserLogin(user.username);
     const token = makeSession(config, {
@@ -217,7 +225,7 @@ export async function createSupportFeatures({ config, db }) {
       username: user.username,
       version: Number(user.token_version),
     });
-    res.json({ token, member: user.name, username: user.username, role: "member" });
+    res.json({ token, member: user.name, username: user.username, email: user.email || null, role: "member" });
   });
 
   router.get("/api/account", authenticate, requireRole("member"), async (req, res) => {
@@ -227,6 +235,7 @@ export async function createSupportFeatures({ config, db }) {
     res.json({
       name: user.name,
       username: user.username,
+      email: user.email || null,
       role: "member",
       profilePhoto: profile.rows[0]?.profile_photo_data_url || "",
     });

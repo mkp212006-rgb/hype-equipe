@@ -30,6 +30,19 @@ function usernameValue(value) {
   return username;
 }
 
+function emailValue(value) {
+  const email = text(value, "E-mail", { minimum: 5, maximum: 254 }).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpError(400, "Informe um e-mail válido.");
+  }
+  return email;
+}
+
+function loginIdentifierValue(value) {
+  const identifier = text(value, "E-mail ou usuário", { minimum: 3, maximum: 254 }).trim().toLowerCase();
+  return identifier.includes("@") ? emailValue(identifier) : usernameValue(identifier);
+}
+
 function moneyValue(value, label, { minimum = 0.01, maximum = 1_000_000 } = {}) {
   const number = Number(String(value ?? "").replace(",", "."));
   if (!Number.isFinite(number) || number < minimum || number > maximum) {
@@ -147,36 +160,44 @@ export async function createApp({ config, db, smm, mercadoPago }) {
   app.post("/auth/register", registerLimiter, async (req, res) => {
     const name = text(req.body?.name, "Nome", { minimum: 2, maximum: 80 }).trim();
     const username = usernameValue(req.body?.username);
+    const email = req.body?.email == null || String(req.body.email).trim() === ""
+      ? null
+      : emailValue(req.body.email);
     const password = text(req.body?.password, "Senha", { minimum: 6, maximum: 256 });
     try {
-      const user = await db.createUser({ name, username, passwordHash: await hashSecret(password) });
+      const user = await db.createUser({ name, username, email, passwordHash: await hashSecret(password) });
       res.status(201).json({
         ok: true,
-        user: { name: user.name, username: user.username, role: "member" },
+        user: { name: user.name, username: user.username, email: user.email || null, role: "member" },
         balance: 0,
         currency: "BRL",
       });
     } catch (error) {
-      if (error?.code === "23505") throw new HttpError(409, "Esse nome de usuário já está cadastrado.");
+      if (error?.code === "23505") {
+        const message = error.constraint === "users_email_ci_idx"
+          ? "Esse e-mail já está cadastrado."
+          : "Esse nome de usuário já está cadastrado.";
+        throw new HttpError(409, message);
+      }
       throw error;
     }
   });
 
   app.post("/auth/login", loginLimiter, async (req, res) => {
-    const username = usernameValue(req.body?.username);
+    const identifier = loginIdentifierValue(req.body?.identifier ?? req.body?.username);
     const password = text(req.body?.password, "Senha", { minimum: 1, maximum: 256 });
-    const user = await db.getUser(username);
+    const user = await db.getUserByIdentifier(identifier);
     const valid = await verifySecret(password, user?.password_hash || dummyPasswordHash);
-    if (!user || !user.active || !valid) throw new HttpError(401, "Usuário ou senha incorretos.");
-    await db.recordUserLogin(username);
+    if (!user || !user.active || !valid) throw new HttpError(401, "E-mail, usuário ou senha incorretos.");
+    await db.recordUserLogin(user.username);
     const token = makeSession(config, {
-      sub: username,
+      sub: user.username,
       role: "member",
       member: user.name,
-      username,
+      username: user.username,
       version: Number(user.token_version),
     });
-    res.json({ token, member: user.name, username, role: "member" });
+    res.json({ token, member: user.name, username: user.username, email: user.email || null, role: "member" });
   });
 
   app.post("/admin/login", loginLimiter, async (req, res) => {

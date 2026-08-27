@@ -123,6 +123,7 @@ export function createDatabase(config) {
         CREATE TABLE IF NOT EXISTS users (
           username TEXT PRIMARY KEY,
           name TEXT NOT NULL,
+          email TEXT,
           password_hash TEXT NOT NULL,
           token_version INTEGER NOT NULL DEFAULT 1,
           active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -130,6 +131,11 @@ export function createDatabase(config) {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+        CREATE UNIQUE INDEX IF NOT EXISTS users_email_ci_idx
+          ON users ((LOWER(email)))
+          WHERE email IS NOT NULL AND email <> '';
 
         CREATE TABLE IF NOT EXISTS wallets (
           username TEXT PRIMARY KEY REFERENCES users(username) ON DELETE CASCADE,
@@ -251,15 +257,15 @@ export function createDatabase(config) {
     return result.rows[0]?.value ?? null;
   }
 
-  async function createUser({ name, username, passwordHash }) {
+  async function createUser({ name, username, email = null, passwordHash }) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const result = await client.query(
-        `INSERT INTO users (username, name, password_hash)
-         VALUES ($1, $2, $3)
-         RETURNING username, name, token_version, active, created_at`,
-        [username, name, passwordHash],
+        `INSERT INTO users (username, name, email, password_hash)
+         VALUES ($1, $2, $3, $4)
+         RETURNING username, name, email, token_version, active, created_at`,
+        [username, name, email, passwordHash],
       );
       await client.query("INSERT INTO wallets (username, balance) VALUES ($1, 0)", [username]);
       await client.query("COMMIT");
@@ -274,9 +280,22 @@ export function createDatabase(config) {
 
   async function getUser(username) {
     const result = await pool.query(
-      `SELECT username, name, password_hash, token_version, active, last_login_at, created_at
+      `SELECT username, name, email, password_hash, token_version, active, last_login_at, created_at
        FROM users WHERE username = $1`,
       [String(username).toLowerCase()],
+    );
+    return result.rows[0] || null;
+  }
+
+  async function getUserByIdentifier(identifier) {
+    const normalized = String(identifier || "").trim().toLowerCase();
+    const result = await pool.query(
+      `SELECT username, name, email, password_hash, token_version, active, last_login_at, created_at
+       FROM users
+       WHERE username = $1 OR LOWER(email) = $1
+       ORDER BY CASE WHEN username = $1 THEN 0 ELSE 1 END
+       LIMIT 1`,
+      [normalized],
     );
     return result.rows[0] || null;
   }
@@ -652,6 +671,7 @@ export function createDatabase(config) {
     getSetting,
     createUser,
     getUser,
+    getUserByIdentifier,
     recordUserLogin,
     getAdmin,
     recordAdminLogin,
