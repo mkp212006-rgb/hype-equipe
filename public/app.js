@@ -19,7 +19,7 @@
     wallet: null,
     walletSupported: true,
     adminSummary: null,
-    registrationUsername: "",
+    registrationIdentifier: "",
     catalogConfig: loadJson(CATALOG_KEY) || { categories: [], serviceMeta: {} },
     catalogServerSupported: false,
     error: "",
@@ -46,6 +46,8 @@
     check: '<path d="m5 12 4 4L19 6"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
     key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l2 2M14 9l2 2"/>',
+    headset: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 1-2ZM20 14h-3v6h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-2Z"/><path d="M17 20c0 1.1-.9 2-2 2h-3"/>',
+    cart: '<circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6"/>',
   };
 
   function icon(name, className) {
@@ -366,6 +368,31 @@
     return `<div class="app-shell ${withNav ? "" : "no-nav"}"><main class="page ${withNav ? "" : "auth-page"}">${content}</main>${withNav ? nav() : ""}</div>`;
   }
 
+  function loginShell(content) {
+    return `
+      <div class="app-shell no-nav auth-login-shell">
+        <button class="auth-login-promo" type="button" data-action="register-screen">
+          CLIQUE AQUI E CRIE SUA CONTA NA TW STORE! <span aria-hidden="true">❤️</span>
+        </button>
+        <header class="auth-login-header">
+          <div class="auth-login-header-inner">
+            <div class="auth-login-brand">
+              <img src="./tw-store-icon.png" alt="Ícone Tw Store" />
+              <strong>Tw Store</strong>
+              <span class="auth-login-verified" title="Tw Store verificada">${icon("check")}</span>
+            </div>
+            <div class="auth-login-actions" aria-hidden="true">
+              <span>${icon("search")}</span>
+              <span>${icon("headset")}</span>
+              <span class="is-active">${icon("user")}</span>
+              <span>${icon("cart")}</span>
+            </div>
+          </div>
+        </header>
+        <main class="auth-login-main">${content}</main>
+      </div>`;
+  }
+
   function renderLoading() {
     app.innerHTML = `<div class="loading-page"><div><div class="brand-mark brand-mark-image">T</div><div class="spinner" style="margin:0 auto 13px"></div><div>Conectando ao servidor seguro…</div><small>Isso pode levar alguns segundos quando o Railway está iniciando.</small></div></div>`;
   }
@@ -403,22 +430,19 @@
       return;
     }
 
-    app.innerHTML = shell(`
-      ${brand()}
-      <section class="auth-hero">
-        <div class="eyebrow">Sua conta Tw Store</div>
-        <h1>Entrar</h1>
-        <p class="subtitle">Use o usuário e a senha que você cadastrou para acessar sua carteira e fazer pedidos.</p>
+    app.innerHTML = loginShell(`
+      <section class="auth-login-heading">
+        <h1>Fazer login</h1>
+        <p>Entre com sua conta para continuar</p>
       </section>
-      <form class="card form-stack" data-form="member-login">
-        <label class="field"><span class="field-label">Usuário</span><input class="field-control" name="username" autocomplete="username" value="${escapeHtml(state.registrationUsername || "")}" placeholder="Seu usuário" minlength="3" required /></label>
+      <form class="auth-login-card form-stack" data-form="member-login">
+        <label class="field"><span class="field-label">E-mail ou usuário</span><input class="field-control" name="identifier" autocomplete="username" autocapitalize="none" spellcheck="false" value="${escapeHtml(state.registrationIdentifier || "")}" placeholder="seu@email.com ou usuário" minlength="3" maxlength="254" required /></label>
         <label class="field"><span class="field-label">Senha</span><input class="field-control" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" minlength="6" required /></label>
-        <div class="notice">${icon("shield")} <span>O servidor é configurado de fábrica e não aparece nesta tela.</span></div>
-        <button class="button button-primary" type="submit">${icon("user")} Entrar na minha conta</button>
+        <button class="button button-primary auth-login-submit" type="submit">${icon("user")} Entrar</button>
       </form>
-      <div class="auth-switch"><button type="button" data-action="register-screen">Ainda não tenho conta • Criar cadastro</button></div>
+      <div class="auth-switch auth-login-switch"><span>Ainda não tenho conta</span><button type="button" data-action="register-screen">Criar cadastro</button></div>
       <div class="auth-switch"><button type="button" data-action="admin-login-screen">Acesso administrativo</button></div>
-    `, false);
+    `);
   }
 
   function renderRegister() {
@@ -427,10 +451,11 @@
       <section class="auth-hero">
         <div class="eyebrow">Novo cadastro</div>
         <h1>Criar conta</h1>
-        <p class="subtitle">Cadastre seus dados. Depois do registro, volte ao login e entre com o mesmo usuário e senha.</p>
+        <p class="subtitle">Cadastre seus dados. Depois, você poderá entrar usando seu e-mail ou nome de usuário.</p>
       </section>
       <form class="card form-stack" data-form="member-register">
         <label class="field"><span class="field-label">Nome</span><input class="field-control" name="name" autocomplete="name" placeholder="Seu nome" minlength="2" required /></label>
+        <label class="field"><span class="field-label">E-mail</span><input class="field-control" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="seu@email.com" maxlength="254" required /></label>
         <label class="field"><span class="field-label">Usuário</span><input class="field-control" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Crie um usuário" minlength="3" maxlength="32" required /><span class="helper">Use pelo menos 3 caracteres.</span></label>
         <label class="field"><span class="field-label">Senha</span><input class="field-control" name="password" type="password" autocomplete="new-password" placeholder="Crie uma senha" minlength="6" required /></label>
         <label class="field"><span class="field-label">Confirmar senha</span><input class="field-control" name="confirmPassword" type="password" autocomplete="new-password" placeholder="Digite a senha novamente" minlength="6" required /></label>
@@ -942,39 +967,41 @@
       if (type === "member-register") {
         state.apiUrl = DEFAULT_API_URL;
         const username = String(values.username || "").trim();
+        const email = String(values.email || "").trim().toLowerCase();
         const password = String(values.password || "");
         if (username.length < 3) throw new Error("O usuário precisa ter pelo menos 3 caracteres.");
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
         if (password.length < 6) throw new Error("A senha precisa ter pelo menos 6 caracteres.");
         if (password !== String(values.confirmPassword || "")) throw new Error("As senhas não coincidem.");
         await client(true).request("/auth/register", {
           method: "POST",
-          body: { name: String(values.name || "").trim(), username, password },
+          body: { name: String(values.name || "").trim(), username, email, password },
         });
-        state.registrationUsername = username;
+        state.registrationIdentifier = email;
         state.screen = "login";
         render();
-        toast("Cadastro criado. Agora entre com seu usuário e senha.");
+        toast("Cadastro criado. Agora entre com seu e-mail ou usuário.");
         return;
       }
 
       if (type === "member-login") {
         state.apiUrl = DEFAULT_API_URL;
-        const username = String(values.username || "").trim();
+        const identifier = String(values.identifier || "").trim().toLowerCase();
         const response = await client(true).request("/auth/login", {
           method: "POST",
-          body: { username, password: values.password },
+          body: { identifier, password: values.password },
         });
         const user = response.user || response.account || {};
         const session = {
           ...response,
           token: response.token || response.accessToken,
-          member: response.member || user.name || user.username || username,
-          username: response.username || user.username || username,
+          member: response.member || user.name || user.username || identifier,
+          username: response.username || user.username || identifier,
           role: response.role || user.role || "member",
         };
         if (!session.token) throw new Error("O servidor não retornou uma sessão válida.");
         saveSession(session);
-        state.registrationUsername = "";
+        state.registrationIdentifier = "";
         await loadMemberData();
         state.screen = "home";
         render();

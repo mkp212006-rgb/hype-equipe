@@ -290,6 +290,337 @@ select.field-control {
   padding: 10px;
 }
 
+/* Login inspirado na composição da LMT Store, adaptado à identidade Tw Store. */
+.auth-login-shell {
+  --auth-accent: #e30613;
+  --auth-accent-light: #ff3542;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 0;
+  overflow-x: hidden;
+  background: #020204;
+}
+
+.auth-login-promo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 39px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 0;
+  background: var(--auth-accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+}
+
+.auth-login-header {
+  border-bottom: 1px solid #17171c;
+  background: #000;
+}
+
+.auth-login-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: min(100%, 1180px);
+  min-height: 88px;
+  margin: 0 auto;
+  padding: 12px 28px;
+}
+
+.auth-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.auth-login-brand img {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  border: 1px solid #28282f;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .34);
+}
+
+.auth-login-brand strong {
+  overflow: hidden;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -.7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-login-verified {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--auth-accent);
+  color: #fff;
+}
+
+.auth-login-verified .icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.8;
+}
+
+.auth-login-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-login-actions > span {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid #1c1c22;
+  border-radius: 13px;
+  background: #050507;
+  color: #fff;
+}
+
+.auth-login-actions > span.is-active {
+  border-color: #34343b;
+  background: #151519;
+}
+
+.auth-login-actions .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.auth-login-main {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: calc(100vh - 127px - var(--safe-top));
+  min-height: calc(100svh - 127px - var(--safe-top));
+  padding: 92px 28px 110px;
+  overflow: hidden;
+  background: #020204;
+}
+
+.auth-login-main::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 10%, rgba(227, 6, 19, .07), transparent 36%);
+  background-size: 72px 72px, 72px 72px, auto;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .94) 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .94) 62%, transparent 100%);
+}
+
+.auth-login-heading {
+  width: min(100%, 660px);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.auth-login-heading h1 {
+  margin: 0 0 16px;
+  font-size: clamp(36px, 7vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -1.8px;
+}
+
+.auth-login-heading p {
+  margin: 0;
+  color: #aaaab1;
+  font-size: clamp(17px, 3.5vw, 21px);
+  line-height: 1.45;
+}
+
+.auth-login-card {
+  width: min(100%, 660px);
+  margin: 58px auto 0;
+  padding: 42px;
+  border: 1px solid #1b1b20;
+  border-radius: 24px;
+  background: rgba(3, 3, 5, .92);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .28);
+}
+
+.auth-login-card.form-stack {
+  gap: 22px;
+}
+
+.auth-login-card .field {
+  gap: 10px;
+}
+
+.auth-login-card .field-label {
+  color: #f4f4f6;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.auth-login-card .field-control {
+  min-height: 62px;
+  padding: 0 17px;
+  border-color: #28282f;
+  border-radius: 14px;
+  background: #050507;
+  color: #fff;
+  font-size: 17px;
+}
+
+.auth-login-card .field-control::placeholder {
+  color: #898991;
+}
+
+.auth-login-card .field-control:focus {
+  border-color: var(--auth-accent-light);
+  box-shadow: 0 0 0 4px rgba(227, 6, 19, .12);
+}
+
+.auth-login-submit {
+  min-height: 62px;
+  margin-top: 4px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--auth-accent-light), var(--auth-accent));
+  color: #fff;
+  font-size: 18px;
+  box-shadow: 0 14px 34px rgba(227, 6, 19, .22);
+}
+
+.auth-login-submit .icon {
+  width: 23px;
+  height: 23px;
+}
+
+.auth-login-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 26px;
+  color: #aaaab1;
+  font-size: 15px;
+}
+
+.auth-login-switch button {
+  color: var(--auth-accent-light);
+  font-size: 15px;
+}
+
+@media (max-width: 560px) {
+  .auth-login-promo {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .auth-login-header-inner {
+    min-height: 78px;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+
+  .auth-login-brand {
+    gap: 8px;
+  }
+
+  .auth-login-brand img {
+    width: 49px;
+    height: 49px;
+    border-radius: 10px;
+  }
+
+  .auth-login-brand strong {
+    font-size: 18px;
+  }
+
+  .auth-login-verified {
+    width: 23px;
+    height: 23px;
+  }
+
+  .auth-login-actions {
+    gap: 5px;
+  }
+
+  .auth-login-actions > span {
+    width: 39px;
+    height: 42px;
+    border-radius: 11px;
+  }
+
+  .auth-login-actions .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .auth-login-main {
+    min-height: calc(100svh - 116px - var(--safe-top));
+    padding: 78px 28px 96px;
+  }
+
+  .auth-login-heading h1 {
+    margin-bottom: 13px;
+    font-size: 40px;
+  }
+
+  .auth-login-heading p {
+    font-size: 18px;
+  }
+
+  .auth-login-card {
+    margin-top: 52px;
+    padding: 28px 23px;
+    border-radius: 21px;
+  }
+
+  .auth-login-card.form-stack {
+    gap: 20px;
+  }
+
+  .auth-login-card .field-label {
+    font-size: 14px;
+  }
+
+  .auth-login-card .field-control {
+    min-height: 58px;
+    font-size: 16px;
+  }
+
+  .auth-login-submit {
+    min-height: 58px;
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 390px) {
+  .auth-login-actions > span:nth-child(-n+2) {
+    display: none;
+  }
+
+  .auth-login-main {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+}
+
 .topbar {
   display: flex;
   align-items: center;
