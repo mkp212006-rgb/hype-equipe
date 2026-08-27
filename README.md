@@ -4,7 +4,7 @@ Site e backend do aplicativo Tw Store, preparados para rodar juntos no endereço
 
 ## Recursos
 
-- Cadastro e login individual por usuário e senha.
+- Cadastro com e-mail e login individual por e-mail ou usuário, sempre usando senha.
 - Carteira individual em BRL, iniciando em R$ 0,00.
 - Recargas via Mercado Pago Checkout Pro.
 - Taxa fixa de 5% sobre o valor que será creditado na carteira.
@@ -112,3 +112,9 @@ A página inicial do cliente ganhou a sequência visual da referência LMT Store
 A vitrine foi refeita usando o vídeo enviado como referência principal: preto AMOLED, faixa promocional, cabeçalho compacto com o ícone Tw Store, avaliação, boas-vindas, mosaico de banners, três destaques grandes e cartões duplos com **Ver mais**. Os detalhes azuis da interface foram convertidos para vermelho.
 
 Ao comprar uma assinatura, o cliente informa o e-mail, o backend confirma o produto e o preço no banco, debita a carteira em uma transação e cria uma entrega pendente. A nova aba **Entregas** permite ao administrador preparar os dados, abrir o aplicativo de e-mail e confirmar o envio. Os dados de acesso são criptografados no PostgreSQL.
+
+## Atualização de login — e-mail ou usuário
+
+A tela de acesso foi reorganizada com faixa promocional, cabeçalho compacto, fundo AMOLED quadriculado e formulário centralizado, seguindo a composição visual da referência LMT Store com a identidade vermelha da Tw Store. O mesmo campo aceita **e-mail ou nome de usuário**, acompanhado da senha cadastrada.
+
+A migration adiciona a coluna `email` à tabela `users` e cria um índice único sem diferenciar letras maiúsculas de minúsculas. Contas antigas continuam funcionando normalmente pelo nome de usuário; novos cadastros feitos pelo site passam a solicitar e-mail.
