@@ -18,6 +18,7 @@ function makeSession(config, payload) {
 
 function errorPayload(error, production) {
   const body = { error: error.message || "O servidor não conseguiu concluir a solicitação." };
+  if (error.code === "SMM_OUT_OF_STOCK") body.code = error.code;
   if (!production && error.details) body.details = error.details;
   return body;
 }

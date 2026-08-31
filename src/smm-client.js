@@ -17,6 +17,34 @@ function finiteNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+export function isSmmInsufficientBalanceError(message, payload) {
+  const normalized = [message, payload == null ? "" : JSON.stringify(payload)]
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return [
+    /\b(?:insufficient|not enough|low|empty|zero)\b.{0,28}\b(?:balance|funds?|credits?|money)\b/,
+    /\b(?:balance|funds?|credits?|money)\b.{0,28}\b(?:insufficient|not enough|too low|empty|zero)\b/,
+    /\b(?:saldo|fundos?|creditos?)\b.{0,28}\b(?:insuficiente|indisponivel|esgotado|zerado|sem)\b/,
+    /\b(?:sem|insuficiente)\b.{0,28}\b(?:saldo|fundos?|creditos?)\b/,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function providerError(message, payload, responseStatus) {
+  if (responseStatus === 402 || isSmmInsufficientBalanceError(message, payload)) {
+    return new SmmApiError("Sem estoque", {
+      status: 409,
+      code: "SMM_OUT_OF_STOCK",
+      providerPayload: payload,
+    });
+  }
+  return new SmmApiError(String(message || "A SMMHype recusou a solicitação."), {
+    providerPayload: payload,
+  });
+}
+
 export function normalizeService(raw) {
   const service = Number(raw?.service);
   const min = Number(raw?.min);
@@ -84,12 +112,10 @@ export class SmmClient {
         });
       }
       if (!response.ok) {
-        throw new SmmApiError(payload.error || `A SMMHype respondeu com HTTP ${response.status}.`, {
-          providerPayload: payload,
-        });
+        throw providerError(payload.error || payload.message || `A SMMHype respondeu com HTTP ${response.status}.`, payload, response.status);
       }
       if (payload && typeof payload === "object" && !Array.isArray(payload) && payload.error) {
-        throw new SmmApiError(String(payload.error), { providerPayload: payload });
+        throw providerError(payload.error, payload, response.status);
       }
       return payload;
     } catch (error) {
