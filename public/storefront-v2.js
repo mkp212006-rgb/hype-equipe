@@ -72,7 +72,10 @@
       const raw = await response.text();
       let data = {};
       try { data = raw ? JSON.parse(raw) : {}; } catch { data = {}; }
-      if (!response.ok) throw Object.assign(new Error(data.error || "Não foi possível concluir a operação."), { status: response.status });
+      if (!response.ok) throw Object.assign(new Error(data.error || "Não foi possível concluir a operação."), {
+        status: response.status,
+        code: data.code || "",
+      });
       return data;
     } catch (error) {
       if (error.name === "AbortError") throw new Error("O servidor demorou demais para responder.");
@@ -328,6 +331,10 @@
     return '<div class="store-dialog-backdrop" data-store-smm-modal hidden><section class="store-dialog store-smm-detail-dialog" role="dialog" aria-modal="true" aria-label="Fazer pedido SMM"><div data-store-smm-content></div></section></div>';
   }
 
+  function smmStockAlertModal() {
+    return '<div class="store-dialog-backdrop store-stock-alert-backdrop" data-store-stock-alert-modal hidden><section class="store-dialog store-support-dialog store-stock-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="store-stock-alert-title" aria-describedby="store-stock-alert-description">' + dialogHeading("ATENDIMENTO", "Disponibilidade") + '<div class="store-stock-alert-content">' + storeIcon("box") + '<h3 id="store-stock-alert-title">Sem estoque</h3><small id="store-stock-alert-description">peça uma reposição ao suporte</small><button type="button" class="store-purchase-submit" data-store-close-dialog>Entendi</button></div></section></div>';
+  }
+
   function cartCountMarkup(className) {
     const count = cartProducts().length;
     return '<span class="' + escapeHtml(className || "store-cart-count") + '" data-store-cart-count ' + (count ? "" : "hidden") + '>' + count + "</span>";
@@ -426,7 +433,7 @@
       '<section class="store-hero" id="store-hero-start"><div class="store-hero-copy"><div class="store-review-badge">' + storeIcon("star") + '<b>4.9</b><i></i>' + storeIcon("check") + '<span>+50 Mil avaliações</span>' + storeIcon("arrow") + '</div><h1>Bem Vindo(a)<strong>Tw Store!</strong></h1><p>A Tw Store oferece qualidade, segurança e confiança em cada pedido. Sua experiência é nossa prioridade.</p><div class="store-hero-actions"><button type="button" class="store-primary-action" data-store-community>' + storeIcon("discord") + ' Comunidade</button><button type="button" class="store-secondary-action" data-store-whatsapp>' + storeIcon("headset") + ' Suporte</button></div></div></section>' +
       featuredSection + catalogSection("Assinaturas", subscriptions, "subscriptions") + categorySections +
       '<footer class="store-video-footer"><img src="./tw-store-icon.png" alt="Tw Store"><div><b>Tw Store</b><small>Qualidade, segurança e confiança.</small></div><button type="button" data-store-open-wallet aria-label="Abrir carteira e adicionar saldo">' + storeIcon("wallet") + '<span>' + escapeHtml(balance) + "</span></button></footer>" +
-      searchModal(catalog.products) + subscriptionDetailModal() + cartModal() + purchaseModal() + walletModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal();
+      searchModal(catalog.products) + subscriptionDetailModal() + cartModal() + purchaseModal() + walletModal() + ordersModal() + profileModal() + supportModal() + smmOrderModal() + smmStockAlertModal();
     updateCartBadges();
   }
 
@@ -745,6 +752,13 @@
     if (preview) preview.textContent = Number.isFinite(charge) ? money(charge) : "—";
   }
 
+  function openSmmStockAlert() {
+    const modal = document.querySelector("[data-store-stock-alert-modal]");
+    if (!modal) return toast("Sem estoque", true);
+    openDialog(modal);
+    setTimeout(function () { modal.querySelector("[data-store-close-dialog]")?.focus(); }, 180);
+  }
+
   function openSmmProduct(target) {
     const product = memberProducts.find(function (item) { return item.kind === "smm" && String(item.sourceId) === String(target.dataset.storeSmm); });
     const modal = document.querySelector("[data-store-smm-modal]");
@@ -775,7 +789,11 @@
       } catch { /* o pedido já foi confirmado; saldo será atualizado na próxima carga */ }
       toast("Pedido criado. Consulte o andamento em Meus pedidos.");
     } catch (error) {
-      toast(error.message, true);
+      if (error.code === "SMM_OUT_OF_STOCK" || /^sem estoque$/i.test(String(error.message || "").trim())) {
+        openSmmStockAlert();
+      } else {
+        toast(error.message, true);
+      }
     } finally {
       if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Fazer pedido"; }
     }

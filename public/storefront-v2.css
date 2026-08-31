@@ -1469,6 +1469,14 @@ body.store-dialog-open{overflow:hidden}
 .store-smm-success>div strong{font-size:11px}
 .store-smm-success>.store-purchase-submit{width:100%}
 
+.store-stock-alert-backdrop{z-index:140;align-items:center}
+.store-stock-alert-dialog{width:min(100%,420px);max-height:min(88vh,520px)}
+.store-stock-alert-content{display:grid;justify-items:center;padding:31px 16px 12px;text-align:center}
+.store-stock-alert-content>.store-icon{width:54px;height:54px;padding:13px;border:1px solid rgba(227,6,19,.34);border-radius:50%;background:rgba(227,6,19,.09);color:#ef2633}
+.store-stock-alert-content h3{margin:16px 0 5px;color:#fff;font-size:20px;letter-spacing:-.35px}
+.store-stock-alert-content small{color:#85858d;font-size:8px;line-height:1.45}
+.store-stock-alert-content>.store-purchase-submit{width:100%;margin-top:22px}
+
 @media(max-width:430px){
   .storefront-page .store-header-inner{gap:5px;padding-right:8px;padding-left:8px}
   .storefront-page .store-brand b{max-width:74px}
