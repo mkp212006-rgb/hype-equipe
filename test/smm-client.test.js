@@ -49,3 +49,21 @@ test("surfaces provider errors without leaking the API key", async () => {
     return true;
   });
 });
+
+test("maps a provider balance failure to the safe out-of-stock response", async () => {
+  for (const providerMessage of ["Not enough funds", "Insufficient balance", "Saldo insuficiente na conta"]) {
+    const client = new SmmClient({
+      apiUrl: "https://provider.example/api/v2",
+      apiKey: "secret-provider-key",
+      fetchFn: async () => jsonResponse({ error: providerMessage }),
+    });
+    await assert.rejects(() => client.addOrder({ serviceId: 1, link: "https://example.com", quantity: 10 }), (error) => {
+      assert.equal(error instanceof SmmApiError, true);
+      assert.equal(error.message, "Sem estoque");
+      assert.equal(error.code, "SMM_OUT_OF_STOCK");
+      assert.equal(error.status, 409);
+      assert.equal(error.message.includes(providerMessage), false);
+      return true;
+    });
+  }
+});

@@ -6,7 +6,7 @@ import vm from "node:vm";
 import { createApp } from "../src/app.js";
 import { hashSecret } from "../src/crypto.js";
 
-async function startTestServer() {
+async function startTestServer(options = {}) {
   const adminHash = await hashSecret("unit-test-password-123");
   const memberHash = await hashSecret("member-password-123");
   const admin = {
@@ -35,10 +35,12 @@ async function startTestServer() {
     listOrders: async () => [],
     countOrders: async () => 0,
   };
+  Object.assign(fakeDb, options.db || {});
   const fakeSmm = {
     isConfigured: () => false,
     balance: async () => ({ balance: 0, currency: "USD" }),
   };
+  Object.assign(fakeSmm, options.smm || {});
   const fakeMercadoPago = {
     isConfigured: () => false,
     isWebhookConfigured: () => false,
@@ -118,6 +120,60 @@ test("member login accepts either username or email with the same password", asy
     assert.equal(session.role, "member");
     assert.ok(session.token);
   }
+});
+
+test("returns the safe stock code when the SMM provider has no balance", async (context) => {
+  let refunded = false;
+  const server = await startTestServer({
+    db: {
+      getService: async () => ({
+        service: 101,
+        name: "Seguidores Instagram",
+        enabled: true,
+        pricePerThousandBRL: 10,
+        min: 10,
+        max: 10_000,
+        refill: false,
+        cancel: false,
+      }),
+      createWalletOrder: async (order) => ({ created: true, order }),
+      refundWalletOrder: async () => { refunded = true; },
+      updateOrder: async () => ({}),
+      addOrderEvent: async () => {},
+    },
+    smm: {
+      isConfigured: () => true,
+      addOrder: async () => {
+        throw Object.assign(new Error("Sem estoque"), { status: 409, code: "SMM_OUT_OF_STOCK" });
+      },
+    },
+  });
+  context.after(server.close);
+
+  const login = await fetch(`${server.baseUrl}/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ identifier: "pessoa", password: "member-password-123" }),
+  });
+  const session = await login.json();
+  const response = await fetch(`${server.baseUrl}/api/orders`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${session.token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      serviceId: 101,
+      link: "https://instagram.com/example",
+      quantity: 100,
+      paymentMethod: "wallet",
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+    }),
+  });
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "Sem estoque", code: "SMM_OUT_OF_STOCK" });
+  assert.equal(refunded, true);
 });
 
 test("registration accepts a valid email and rejects an invalid one", async (context) => {

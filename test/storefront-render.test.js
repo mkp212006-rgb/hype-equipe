@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 test("renders the AMOLED Tw Store structure with balanced interactive markup", async () => {
   const original = await readFile(new URL("../public/storefront-v2.js", import.meta.url), "utf8");
-  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\nwindow.__subscriptionDetailMarkup = subscriptionDetailMarkup;\nwindow.__cartContentMarkup = cartContentMarkup;\nwindow.__saveCartIds = saveCartIds;\nwindow.__memberOrderCard = memberOrderCard;\nwindow.__mergedMemberOrders = mergedMemberOrders;\n})();");
+  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__smmStockAlertModal = smmStockAlertModal;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\nwindow.__subscriptionDetailMarkup = subscriptionDetailMarkup;\nwindow.__cartContentMarkup = cartContentMarkup;\nwindow.__saveCartIds = saveCartIds;\nwindow.__memberOrderCard = memberOrderCard;\nwindow.__mergedMemberOrders = mergedMemberOrders;\n})();");
   const app = { querySelector: () => null };
   const classList = { add() {}, remove() {}, toggle() {} };
   const storageValues = new Map([["tw-store.session.v3", JSON.stringify({ role: "member", username: "cliente", member: "Cliente" })]]);
@@ -270,6 +270,10 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   const supportMarkup = window.__supportNewMarkup();
   assert.match(supportMarkup, /data-store-new-ticket/);
   assert.match(supportMarkup, /Meus tickets/);
+  const stockAlertMarkup = window.__smmStockAlertModal();
+  assert.match(stockAlertMarkup, /role="alertdialog"/);
+  assert.match(stockAlertMarkup, /Sem estoque/);
+  assert.match(stockAlertMarkup, /peça uma reposição ao suporte/);
   const menuMarkup = window.__moreMenu({ member: "Cliente", username: "cliente" });
   assert.match(menuMarkup, /data-store-open-profile/);
   assert.match(menuMarkup, /data-store-open-tickets/);
