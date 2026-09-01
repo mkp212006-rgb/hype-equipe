@@ -73,25 +73,27 @@ export class MercadoPagoClient {
     }
   }
 
-  async createDepositPreference({ depositId, creditAmount, feeAmount, totalAmount, idempotencyKey }) {
+  async createPixPayment({ depositId, creditAmount, feeAmount, totalAmount, idempotencyKey, payerEmail }) {
     if (!this.publicBaseUrl) {
       throw new MercadoPagoError("Configure PUBLIC_BASE_URL no Railway.", { status: 503, code: "MP_PUBLIC_URL_MISSING" });
     }
-    const payload = await this.request("/checkout/preferences", {
+    const email = String(payerEmail || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new MercadoPagoError("A conta precisa ter um e-mail válido para gerar o PIX.", {
+        status: 400,
+        code: "MP_PAYER_EMAIL_MISSING",
+      });
+    }
+    const payload = await this.request("/v1/payments", {
       method: "POST",
       idempotencyKey,
       body: {
-        items: [{
-          id: depositId,
-          title: "Carteira Tw Store",
-          description: `Crédito de R$ ${money(creditAmount).toFixed(2)} + taxa de R$ ${money(feeAmount).toFixed(2)}`,
-          currency_id: "BRL",
-          quantity: 1,
-          unit_price: money(totalAmount),
-        }],
+        transaction_amount: money(totalAmount),
+        description: `Carteira Tw Store: R$ ${money(creditAmount).toFixed(2)} + taxa de R$ ${money(feeAmount).toFixed(2)}`,
+        payment_method_id: "pix",
         external_reference: depositId,
         notification_url: `${this.publicBaseUrl}/webhooks/mercado-pago`,
-        statement_descriptor: "HYPE EQUIPE",
+        payer: { email },
         metadata: {
           deposit_id: depositId,
           credit_amount: money(creditAmount),
@@ -99,13 +101,19 @@ export class MercadoPagoClient {
         },
       },
     });
-    if (!payload?.id || !payload?.init_point) {
-      throw new MercadoPagoError("O Mercado Pago não retornou o link do Checkout Pro.", { payload });
+    const transactionData = payload?.point_of_interaction?.transaction_data || {};
+    if (!payload?.id || !transactionData.qr_code || !transactionData.qr_code_base64) {
+      throw new MercadoPagoError("O Mercado Pago não retornou os dados do QR Code PIX.", {
+        code: "MP_PIX_DATA_MISSING",
+        payload,
+      });
     }
     return {
-      preferenceId: String(payload.id),
-      checkoutUrl: String(payload.init_point),
-      initPoint: String(payload.init_point),
+      paymentId: String(payload.id),
+      status: String(payload.status || "pending"),
+      qrCode: String(transactionData.qr_code),
+      qrCodeBase64: String(transactionData.qr_code_base64),
+      ticketUrl: transactionData.ticket_url ? String(transactionData.ticket_url) : null,
       raw: payload,
     };
   }

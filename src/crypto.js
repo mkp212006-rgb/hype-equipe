@@ -45,7 +45,8 @@ export function verifyToken(token, secret, options = {}) {
   const unsigned = `${parts[0]}.${parts[1]}`;
   const received = Buffer.from(parts[2], "base64url");
   const expected = hmac(unsigned, secret);
-  if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
+  const hasCanonicalSignature = received.toString("base64url") === parts[2];
+  if (!hasCanonicalSignature || received.length !== expected.length || !timingSafeEqual(received, expected)) {
     throw new Error("Token inválido.");
   }
 

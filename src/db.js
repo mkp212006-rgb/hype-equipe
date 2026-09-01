@@ -70,6 +70,8 @@ function transactionFromRow(row) {
 
 function depositFromRow(row) {
   if (!row) return null;
+  const rawPayment = row.raw_payment && typeof row.raw_payment === "object" ? row.raw_payment : {};
+  const transactionData = rawPayment?.point_of_interaction?.transaction_data || {};
   return {
     id: row.id,
     amount: Number(row.credit_amount),
@@ -81,6 +83,9 @@ function depositFromRow(row) {
     preferenceId: row.mp_preference_id,
     paymentId: row.mp_payment_id,
     checkoutUrl: row.checkout_url,
+    ticketUrl: transactionData.ticket_url || row.checkout_url || null,
+    qrCode: transactionData.qr_code || null,
+    qrCodeBase64: transactionData.qr_code_base64 || null,
     createdAt: row.created_at,
     approvedAt: row.approved_at,
   };
@@ -431,15 +436,24 @@ export function createDatabase(config) {
     return { created: false, deposit: depositFromRow(existing.rows[0]) };
   }
 
-  async function updateWalletDepositPreference(id, { preferenceId, checkoutUrl, status }) {
+  async function updateWalletDepositPreference(id, { preferenceId, paymentId, checkoutUrl, status, rawPayment }) {
     const result = await pool.query(
       `UPDATE wallet_deposits
        SET mp_preference_id = COALESCE($2, mp_preference_id),
-           checkout_url = COALESCE($3, checkout_url),
-           status = COALESCE($4, status)
+           mp_payment_id = COALESCE($3, mp_payment_id),
+           checkout_url = COALESCE($4, checkout_url),
+           status = COALESCE($5, status),
+           raw_payment = COALESCE($6::jsonb, raw_payment)
        WHERE id = $1
        RETURNING *`,
-      [id, preferenceId ?? null, checkoutUrl ?? null, status ?? null],
+      [
+        id,
+        preferenceId ?? null,
+        paymentId ?? null,
+        checkoutUrl ?? null,
+        status ?? null,
+        rawPayment == null ? null : JSON.stringify(rawPayment),
+      ],
     );
     return depositFromRow(result.rows[0]);
   }

@@ -262,6 +262,8 @@ export async function createApp({ config, db, smm, mercadoPago }) {
     const idempotencyKey = text(req.body?.idempotencyKey, "Chave do depósito", { minimum: 12, maximum: 128 });
     const feeAmount = Number((creditAmount * 0.05).toFixed(2));
     const totalAmount = Number((creditAmount + feeAmount).toFixed(2));
+    const payer = await db.getUser(req.auth.sub);
+    const payerEmail = emailValue(payer?.email || req.body?.payerEmail);
     const pending = await db.createWalletDeposit({
       id: randomUUID(),
       username: req.auth.sub,
@@ -271,27 +273,28 @@ export async function createApp({ config, db, smm, mercadoPago }) {
       totalAmount,
     });
 
-    if (!pending.created && pending.deposit?.checkoutUrl) {
+    if (!pending.created && pending.deposit?.qrCode && pending.deposit?.qrCodeBase64) {
       return res.json(pending.deposit);
     }
 
     try {
-      const preference = await mercadoPago.createDepositPreference({
+      const payment = await mercadoPago.createPixPayment({
         depositId: pending.deposit.id,
         creditAmount,
         feeAmount,
         totalAmount,
         idempotencyKey: pending.deposit.id,
+        payerEmail,
       });
       const deposit = await db.updateWalletDepositPreference(pending.deposit.id, {
-        preferenceId: preference.preferenceId,
-        checkoutUrl: preference.checkoutUrl,
-        status: "pending",
+        paymentId: payment.paymentId,
+        checkoutUrl: payment.ticketUrl,
+        status: safePaymentStatus(payment.status),
+        rawPayment: payment.raw,
       });
       res.status(pending.created ? 201 : 200).json({
         ...deposit,
-        initPoint: deposit.checkoutUrl,
-        paymentUrl: deposit.checkoutUrl,
+        paymentUrl: deposit.ticketUrl,
       });
     } catch (error) {
       await db.markWalletDepositStatus(pending.deposit.id, "error", { error: error.message });
