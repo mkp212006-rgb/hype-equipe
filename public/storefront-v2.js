@@ -114,6 +114,7 @@
       cart: '<circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6"/>',
       check: '<path d="M20 6 9 17l-5-5"/>',
       close: '<path d="m6 6 12 12M18 6 6 18"/>',
+      copy: '<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
       discord: '<path fill="currentColor" stroke="none" d="M20.317 4.37a19.8 19.8 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.445.865-.608 1.25a18.3 18.3 0 0 0-5.487 0 12.6 12.6 0 0 0-.618-1.25.077.077 0 0 0-.078-.037A19.7 19.7 0 0 0 3.677 4.37a.07.07 0 0 0-.032.028C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.508 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 12.9 12.9 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.892.076.076 0 0 0-.041.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.548-13.66a.061.061 0 0 0-.031-.03ZM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419s.956-2.419 2.157-2.419c1.21 0 2.176 1.095 2.157 2.419 0 1.333-.956 2.419-2.157 2.419Zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419s.955-2.419 2.157-2.419c1.21 0 2.176 1.095 2.157 2.419 0 1.333-.946 2.419-2.157 2.419Z"/>',
       headset: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19c0 1.1-.9 2-2 2h-3"/><rect x="3" y="13" width="4" height="6" rx="2"/><rect x="17" y="13" width="4" height="6" rx="2"/>',
       history: '<circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2M4 5v4h4"/>',
@@ -122,6 +123,7 @@
       lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
       logout: '<path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/>',
       more: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+      qr: '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><path d="M15 15h2v2h-2zM19 15h2v4h-2zM15 19h4v2h-4z"/>',
       search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/>',
       send: '<path d="m3 11 18-8-8 18-2-8Z"/><path d="m11 13 4-4"/>',
       shield: '<path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6Z"/><path d="m9 12 2 2 4-5"/>',
@@ -857,8 +859,12 @@
     return '<article class="store-wallet-transaction"><span class="store-wallet-transaction-icon ' + (isDebit ? "debit" : "credit") + '">' + storeIcon(isDebit ? "cart" : "wallet") + '</span><div><b>' + escapeHtml(label) + '</b><small>' + escapeHtml(dateTime(item.createdAt || item.date)) + '</small></div><strong class="' + (isDebit ? "debit" : "credit") + '">' + (isDebit ? "−" : "+") + money(Math.abs(amount)) + "</strong></article>";
   }
 
-  function walletContentMarkup(wallet) {
+  function walletContentMarkup(wallet, profile) {
     const transactions = Array.isArray(wallet?.transactions) ? wallet.transactions : [];
+    const payerEmail = String(profile?.email || "").trim();
+    const emailField = payerEmail
+      ? '<input type="hidden" name="payerEmail" value="' + escapeHtml(payerEmail) + '" />'
+      : '<label class="store-wallet-amount-field"><span>E-mail para gerar o PIX</span><div class="store-wallet-amount-control store-wallet-email-control"><input name="payerEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="seuemail@exemplo.com" required></div><small>O Mercado Pago exige um e-mail válido para emitir o QR Code.</small></label>';
     const history = transactions.length
       ? '<div class="store-wallet-transactions">' + transactions.map(walletTransactionMarkup).join("") + "</div>"
       : '<div class="store-wallet-empty">' + storeIcon("history") + '<div><b>Nenhuma movimentação</b><small>Seus depósitos e pagamentos aparecerão aqui.</small></div></div>';
@@ -868,11 +874,32 @@
         '<div class="store-wallet-form-heading"><div><small>NOVO DEPÓSITO</small><h3>Quanto deseja adicionar?</h3></div><span>Taxa de 5%</span></div>' +
         '<div class="store-wallet-quick-values" aria-label="Valores sugeridos"><button type="button" data-store-wallet-value="10" aria-pressed="false">R$ 10</button><button type="button" data-store-wallet-value="20" aria-pressed="false">R$ 20</button><button type="button" data-store-wallet-value="50" aria-pressed="false">R$ 50</button><button type="button" data-store-wallet-value="100" aria-pressed="false">R$ 100</button></div>' +
         '<label class="store-wallet-amount-field"><span>Valor que entrará na carteira</span><div class="store-wallet-amount-control"><b>R$</b><input name="amount" type="number" inputmode="decimal" min="5" max="100000" step="0.01" placeholder="0,00" data-store-wallet-amount required></div><small>O valor mínimo para adicionar é R$ 5,00.</small></label>' +
+        emailField +
         '<div class="store-wallet-fee-summary" aria-live="polite"><div><span>Crédito na carteira</span><strong data-store-wallet-credit>R$ 0,00</strong></div><div><span>Taxa de pagamento (5%)</span><strong data-store-wallet-fee>R$ 0,00</strong></div><div><span>Total a pagar</span><strong data-store-wallet-total>R$ 0,00</strong></div></div>' +
         '<div class="store-wallet-payment-note">' + storeIcon("shield") + '<p><b>Pagamento protegido</b><small>O saldo é liberado automaticamente após a confirmação do Mercado Pago.</small></p></div>' +
-        '<button type="submit" class="store-purchase-submit">' + storeIcon("wallet") + '<span>Continuar para o Mercado Pago</span></button>' +
+        '<button type="submit" class="store-purchase-submit">' + storeIcon("qr") + '<span>Gerar QR Code PIX</span></button>' +
       '</form>' +
       '<section class="store-wallet-history"><div class="store-wallet-history-heading"><div><small>HISTÓRICO</small><h3>Últimas movimentações</h3></div><button type="button" data-store-wallet-refresh aria-label="Atualizar carteira">Atualizar</button></div>' + history + "</section>";
+  }
+
+  function pixPaymentMarkup(payment) {
+    const qrCode = String(payment?.qrCode || "").trim();
+    const rawQrImage = String(payment?.qrCodeBase64 || "").trim();
+    const qrImage = rawQrImage.startsWith("data:image/")
+      ? rawQrImage
+      : "data:image/png;base64," + rawQrImage.replace(/\s+/g, "");
+    return dialogHeading("PAGAMENTO PIX", "Concluir pagamento") +
+      '<div class="store-wallet-pix-payment">' +
+        '<section class="store-wallet-pix-card">' +
+          '<div class="store-wallet-pix-progress" aria-hidden="true"><i></i></div>' +
+          '<div class="store-wallet-pix-heading"><p>Use a câmera do seu celular para escanear o QR Code.</p><span><small>TOTAL A PAGAR</small><strong>' + money(payment?.totalAmount || 0) + '</strong></span></div>' +
+          '<div class="store-wallet-pix-qr"><img src="' + escapeHtml(qrImage) + '" alt="QR Code PIX para concluir o depósito" /></div>' +
+          '<div class="store-wallet-pix-divider"><i></i><span>Ou use o copia e cola</span><i></i></div>' +
+          '<div class="store-wallet-pix-copy"><input type="text" value="' + escapeHtml(qrCode) + '" readonly data-store-pix-code aria-label="Código PIX copia e cola" /><button type="button" data-store-copy-pix aria-label="Copiar código PIX" title="Copiar código PIX">' + storeIcon("copy") + '</button></div>' +
+        '</section>' +
+        '<section class="store-wallet-pix-help"><h3>Como pagar com PIX?</h3><div><span>' + storeIcon("qr") + '</span><p>Abra o aplicativo do seu banco e escaneie o QR Code acima.</p></div><div><span>' + storeIcon("copy") + '</span><p>Ou copie o código PIX e cole no aplicativo do seu banco.</p></div><div><span>' + storeIcon("check") + '</span><p>Após o pagamento, o saldo será processado automaticamente.</p></div></section>' +
+        '<div class="store-wallet-pix-actions"><button type="button" data-store-wallet-new-deposit>Gerar outro PIX</button><button type="button" data-store-wallet-refresh>Atualizar saldo</button></div>' +
+      '</div>';
   }
 
   function walletErrorMarkup(message) {
@@ -910,9 +937,11 @@
     if (!host) return;
     host.innerHTML = dialogHeading("MINHA CARTEIRA", "Adicionar saldo") + '<div class="store-dialog-loading"><span class="spinner"></span> Carregando carteira…</div>';
     try {
-      const wallet = await api("/api/wallet");
+      const results = await Promise.all([api("/api/wallet"), api("/api/account")]);
+      const wallet = results[0];
+      const profile = results[1];
       if (!document.body.contains(host)) return;
-      host.innerHTML = walletContentMarkup(wallet);
+      host.innerHTML = walletContentMarkup(wallet, profile);
       updateStorefrontWalletBalance(wallet.balance);
       updateWalletDepositPreview(host.querySelector("[data-store-wallet-amount]"));
     } catch (error) {
@@ -934,6 +963,27 @@
     return "deposit-" + Date.now() + "-" + Math.random().toString(16).slice(2);
   }
 
+  async function copyToClipboard(value) {
+    const text = String(value || "");
+    if (!text) throw new Error("Código PIX indisponível.");
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch { /* usa a cópia compatível abaixo */ }
+    }
+    const fallback = document.createElement("textarea");
+    fallback.value = text;
+    fallback.setAttribute("readonly", "");
+    fallback.style.position = "fixed";
+    fallback.style.opacity = "0";
+    document.body.appendChild(fallback);
+    fallback.select();
+    const copied = document.execCommand("copy");
+    fallback.remove();
+    if (!copied) throw new Error("Não foi possível copiar automaticamente.");
+  }
+
   async function handleWalletDeposit(form) {
     const amount = Number(String(form.elements.amount.value || "").replace(",", "."));
     if (!Number.isFinite(amount) || amount < 5 || amount > 100000) {
@@ -946,16 +996,25 @@
     try {
       const payment = await api("/api/wallet/deposits", {
         method: "POST",
-        body: { amount: Number(amount.toFixed(2)), feePercent: 5, idempotencyKey: randomWalletDepositKey() },
+        body: {
+          amount: Number(amount.toFixed(2)),
+          feePercent: 5,
+          idempotencyKey: randomWalletDepositKey(),
+          payerEmail: String(form.elements.payerEmail?.value || "").trim() || undefined,
+        },
       });
-      const url = payment.checkoutUrl || payment.initPoint || payment.paymentUrl || payment.ticketUrl;
-      if (!url) throw new Error("Pagamento criado, mas o servidor não retornou o link do Mercado Pago.");
-      toast("Pagamento criado. O saldo será liberado após a aprovação.");
-      window.location.href = url;
+      if (!payment.qrCode || !payment.qrCodeBase64) {
+        throw new Error("Pagamento criado, mas o Mercado Pago não retornou o QR Code PIX.");
+      }
+      const host = form.closest("[data-store-wallet-content]");
+      if (!host) throw new Error("Não foi possível abrir a tela do PIX.");
+      host.innerHTML = pixPaymentMarkup(payment);
+      toast("QR Code PIX gerado. Faça o pagamento pelo aplicativo do seu banco.");
+      setTimeout(function () { host.querySelector("[data-store-copy-pix]")?.focus(); }, 180);
     } catch (error) {
       toast(error.message, true);
     } finally {
-      if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Continuar para o Mercado Pago"; }
+      if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = button.dataset.label || "Gerar QR Code PIX"; }
     }
   }
 
@@ -1325,6 +1384,32 @@
     if (openCartButton) {
       event.preventDefault();
       openCart(openCartButton);
+      return;
+    }
+    const copyPixButton = event.target.closest("[data-store-copy-pix]");
+    if (copyPixButton) {
+      event.preventDefault();
+      const code = copyPixButton.closest(".store-wallet-pix-copy")?.querySelector("[data-store-pix-code]")?.value;
+      try {
+        await copyToClipboard(code);
+        const original = copyPixButton.innerHTML;
+        copyPixButton.innerHTML = storeIcon("check");
+        copyPixButton.classList.add("copied");
+        copyPixButton.setAttribute("aria-label", "Código PIX copiado");
+        toast("Código PIX copiado.");
+        setTimeout(function () {
+          if (!document.body.contains(copyPixButton)) return;
+          copyPixButton.innerHTML = original;
+          copyPixButton.classList.remove("copied");
+          copyPixButton.setAttribute("aria-label", "Copiar código PIX");
+        }, 1800);
+      } catch (error) { toast(error.message, true); }
+      return;
+    }
+    const newWalletDeposit = event.target.closest("[data-store-wallet-new-deposit]");
+    if (newWalletDeposit) {
+      event.preventDefault();
+      loadWalletDialog(newWalletDeposit.closest("[data-store-wallet-modal]"));
       return;
     }
     const walletRetry = event.target.closest("[data-store-wallet-retry], [data-store-wallet-refresh]");

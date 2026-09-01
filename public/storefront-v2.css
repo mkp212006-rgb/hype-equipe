@@ -1650,6 +1650,7 @@ body.store-dialog-open{overflow:hidden}
 .store-wallet-amount-control{position:relative;display:flex;align-items:center}
 .store-wallet-amount-control>b{position:absolute;left:13px;z-index:1;color:#ef2633;font-size:11px}
 .store-wallet-dialog .store-wallet-amount-control>input{min-height:51px;padding-left:39px;font-size:17px;font-weight:800}
+.store-wallet-dialog .store-wallet-email-control>input{padding-left:13px;font-size:11px;font-weight:650}
 .store-wallet-fee-summary{
   display:grid;
   gap:1px;
@@ -1669,6 +1670,87 @@ body.store-dialog-open{overflow:hidden}
 .store-wallet-payment-note>p{display:grid;gap:2px;margin:0}
 .store-wallet-payment-note b{font-size:8px}
 .store-wallet-payment-note small{color:#85858d;font-size:7.5px;line-height:1.4}
+.store-wallet-pix-payment{display:grid;gap:14px}
+.store-wallet-pix-card{
+  position:relative;
+  display:grid;
+  gap:17px;
+  padding:22px 20px 20px;
+  overflow:hidden;
+  border:1px solid #29292f;
+  border-radius:15px;
+  background:linear-gradient(145deg,#0c0c10,#070709 76%);
+}
+.store-wallet-pix-progress{position:absolute;top:0;right:0;left:0;height:4px;background:#15151c}
+.store-wallet-pix-progress>i{display:block;width:38%;height:100%;background:linear-gradient(90deg,#e30613,#ff4651);box-shadow:0 0 14px rgba(227,6,19,.46)}
+.store-wallet-pix-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:13px;padding-top:4px}
+.store-wallet-pix-heading>p{max-width:300px;margin:0;color:#aaaab1;font-size:10px;line-height:1.5}
+.store-wallet-pix-heading>span{display:grid;gap:2px;text-align:right}
+.store-wallet-pix-heading small{color:#777780;font-size:6.5px;font-weight:850;letter-spacing:.55px}
+.store-wallet-pix-heading strong{color:#fff;font-size:14px;white-space:nowrap}
+.store-wallet-pix-qr{
+  display:grid;
+  place-items:center;
+  width:min(100%,350px);
+  margin:0 auto;
+  padding:18px;
+  border:1px solid #24242a;
+  border-radius:22px;
+  background:#030305;
+  box-shadow:0 18px 42px rgba(0,0,0,.3);
+}
+.store-wallet-pix-qr>img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain;border-radius:13px;background:#fff}
+.store-wallet-pix-divider{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:11px;color:#92929a;font-size:9px;text-align:center}
+.store-wallet-pix-divider>i{height:1px;background:#24242a}
+.store-wallet-pix-copy{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:9px}
+.store-wallet-dialog .store-wallet-pix-copy>input{
+  min-width:0;
+  height:52px;
+  padding:0 13px;
+  overflow:hidden;
+  border:1px solid #2a2a30;
+  border-radius:11px;
+  background:#030305;
+  color:#f6f6f8;
+  font-size:11px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.store-wallet-pix-copy>button{
+  display:grid;
+  place-items:center;
+  width:52px;
+  height:52px;
+  padding:0;
+  border:1px solid #ef2633;
+  border-radius:11px;
+  background:#e30613;
+  color:#fff;
+  cursor:pointer;
+  transition:transform .16s,background .16s;
+}
+.store-wallet-pix-copy>button:active{transform:scale(.96)}
+.store-wallet-pix-copy>button.copied{border-color:#51c88a;background:#249c61}
+.store-wallet-pix-copy .store-icon{width:23px;height:23px}
+.store-wallet-pix-help{
+  position:relative;
+  display:grid;
+  gap:14px;
+  padding:18px 18px 18px 22px;
+  overflow:hidden;
+  border:1px solid #29292f;
+  border-radius:15px;
+  background:#09090c;
+}
+.store-wallet-pix-help::before{position:absolute;top:0;bottom:0;left:0;width:4px;background:linear-gradient(#e30613,#ff4651);content:""}
+.store-wallet-pix-help>h3{margin:0 0 2px;font-size:16px;letter-spacing:-.25px}
+.store-wallet-pix-help>div{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:11px}
+.store-wallet-pix-help>div>span{display:grid;place-items:center;width:28px;height:28px;color:#ef2633}
+.store-wallet-pix-help .store-icon{width:19px;height:19px}
+.store-wallet-pix-help p{margin:0;color:#d6d6da;font-size:9.5px;line-height:1.55}
+.store-wallet-pix-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.store-wallet-pix-actions>button{min-height:42px;border:1px solid #2b2b31;border-radius:10px;background:#09090c;color:#bbb; font:inherit;font-size:8px;font-weight:850;cursor:pointer}
+.store-wallet-pix-actions>button:last-child{border-color:#e30613;background:#e30613;color:#fff}
 .store-wallet-history{margin-top:17px}
 .store-wallet-history-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:9px;padding:0 2px}
 .store-wallet-history-heading>div{display:grid;gap:3px}
@@ -1701,12 +1783,22 @@ body.store-dialog-open{overflow:hidden}
   .store-wallet-form{padding:13px}
   .store-wallet-quick-values{gap:5px}
   .store-wallet-quick-values>button{font-size:8px}
+  .store-wallet-pix-card{gap:15px;padding:20px 14px 15px}
+  .store-wallet-pix-heading{grid-template-columns:1fr;text-align:center}
+  .store-wallet-pix-heading>p{max-width:none}
+  .store-wallet-pix-heading>span{text-align:center}
+  .store-wallet-pix-qr{width:min(100%,315px);padding:14px;border-radius:18px}
+  .store-wallet-pix-copy{grid-template-columns:minmax(0,1fr) 50px;gap:7px}
+  .store-wallet-dialog .store-wallet-pix-copy>input,.store-wallet-pix-copy>button{height:50px}
+  .store-wallet-pix-copy>button{width:50px}
+  .store-wallet-pix-help{padding:16px 14px 16px 19px}
 }
 
 @media(max-width:350px){
   .store-wallet-status{display:none}
   .store-wallet-balance-card{grid-template-columns:40px minmax(0,1fr)}
   .store-wallet-quick-values{grid-template-columns:1fr 1fr}
+  .store-wallet-pix-actions{grid-template-columns:1fr}
 }
 
 /* Vitrine 2.14 — detalhes de assinaturas e carrinho */
