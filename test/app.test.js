@@ -45,6 +45,7 @@ async function startTestServer(options = {}) {
     isConfigured: () => false,
     isWebhookConfigured: () => false,
   };
+  Object.assign(fakeMercadoPago, options.mercadoPago || {});
   const config = {
     nodeEnv: "test",
     jwtSecret: "z".repeat(48),
@@ -120,6 +121,87 @@ test("member login accepts either username or email with the same password", asy
     assert.equal(session.role, "member");
     assert.ok(session.token);
   }
+});
+
+test("wallet deposit returns the PIX QR Code and copy-and-paste code", async (context) => {
+  const depositId = "22222222-2222-4222-8222-222222222222";
+  const qrCode = "00020126360014br.gov.bcb.pix0114pix@example.com520400005303986540521.005802BR6304ABCD";
+  const qrCodeBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB";
+  let mercadoPagoInput = null;
+  const rawPayment = {
+    id: 99887766,
+    status: "pending",
+    point_of_interaction: {
+      transaction_data: {
+        qr_code: qrCode,
+        qr_code_base64: qrCodeBase64,
+        ticket_url: "https://www.mercadopago.com.br/payments/99887766/ticket",
+      },
+    },
+  };
+  const server = await startTestServer({
+    db: {
+      createWalletDeposit: async ({ creditAmount, feeAmount, totalAmount }) => ({
+        created: true,
+        deposit: { id: depositId, creditAmount, feeAmount, totalAmount },
+      }),
+      updateWalletDepositPreference: async (_id, update) => ({
+        id: depositId,
+        creditAmount: 20,
+        feeAmount: 1,
+        totalAmount: 21,
+        status: update.status,
+        paymentId: update.paymentId,
+        ticketUrl: rawPayment.point_of_interaction.transaction_data.ticket_url,
+        qrCode,
+        qrCodeBase64,
+      }),
+      markWalletDepositStatus: async () => {},
+    },
+    mercadoPago: {
+      isConfigured: () => true,
+      createPixPayment: async (input) => {
+        mercadoPagoInput = input;
+        return {
+          paymentId: "99887766",
+          status: "pending",
+          qrCode,
+          qrCodeBase64,
+          ticketUrl: rawPayment.point_of_interaction.transaction_data.ticket_url,
+          raw: rawPayment,
+        };
+      },
+    },
+  });
+  context.after(server.close);
+
+  const login = await fetch(`${server.baseUrl}/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ identifier: "pessoa", password: "member-password-123" }),
+  });
+  const session = await login.json();
+  const response = await fetch(`${server.baseUrl}/api/wallet/deposits`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${session.token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: 20,
+      idempotencyKey: "33333333-3333-4333-8333-333333333333",
+    }),
+  });
+
+  assert.equal(response.status, 201);
+  const payment = await response.json();
+  assert.equal(payment.qrCode, qrCode);
+  assert.equal(payment.qrCodeBase64, qrCodeBase64);
+  assert.equal(payment.totalAmount, 21);
+  assert.equal(payment.paymentUrl, rawPayment.point_of_interaction.transaction_data.ticket_url);
+  assert.equal(mercadoPagoInput.payerEmail, "pessoa@example.com");
+  assert.equal(mercadoPagoInput.totalAmount, 21);
+  assert.equal(mercadoPagoInput.depositId, depositId);
 });
 
 test("returns the safe stock code when the SMM provider has no balance", async (context) => {
@@ -266,7 +348,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(html, /storefront-v2\.css/);
   assert.match(html, /storefront-v2\.js/);
   assert.match(html, /theme-color" content="#000000"/);
-  assert.match(html, /20260826-subscription-cart/);
+  assert.match(html, /20260901-pix-qr/);
 
   const [stylesheet, script, adminScript] = await Promise.all([
     fetch(`${server.baseUrl}/storefront-v2.css`),
@@ -286,6 +368,7 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(stylesheetSource, /store-header-wallet/);
   assert.match(stylesheetSource, /store-wallet-dialog/);
   assert.match(stylesheetSource, /store-wallet-fee-summary/);
+  assert.match(stylesheetSource, /store-wallet-pix-qr/);
   assert.match(stylesheetSource, /store-video-product-page/);
   assert.match(stylesheetSource, /scroll-snap-type:x mandatory/);
   assert.match(stylesheetSource, /store-video-dots>button/);
@@ -340,6 +423,8 @@ test("serves the storefront layout assets from the same Railway origin", async (
   assert.match(scriptSource, /updateStoreCarousel/);
   assert.match(scriptSource, /scrollStoreCarousel/);
   assert.match(scriptSource, /\/api\/wallet\/deposits/);
+  assert.match(scriptSource, /data-store-copy-pix/);
+  assert.match(scriptSource, /qrCodeBase64/);
   assert.match(scriptSource, /Abrir carteira e adicionar saldo/);
   assert.doesNotMatch(scriptSource, /class="store-header-wallet" data-nav="wallet"/);
   assert.doesNotMatch(scriptSource, /queueServiceSelection/);

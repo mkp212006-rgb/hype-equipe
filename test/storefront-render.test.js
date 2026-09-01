@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 test("renders the AMOLED Tw Store structure with balanced interactive markup", async () => {
   const original = await readFile(new URL("../public/storefront-v2.js", import.meta.url), "utf8");
-  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__smmStockAlertModal = smmStockAlertModal;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__catalogSection = catalogSection;\nwindow.__subscriptionDetailMarkup = subscriptionDetailMarkup;\nwindow.__cartContentMarkup = cartContentMarkup;\nwindow.__saveCartIds = saveCartIds;\nwindow.__memberOrderCard = memberOrderCard;\nwindow.__mergedMemberOrders = mergedMemberOrders;\n})();");
+  const source = original.replace(/\}\)\(\);\s*$/, "window.__renderMemberStorefront = renderMemberStorefront;\nwindow.__openSmmProduct = openSmmProduct;\nwindow.__setMemberProducts = function (items) { memberProducts = items; };\nwindow.__supportNewMarkup = supportNewMarkup;\nwindow.__smmStockAlertModal = smmStockAlertModal;\nwindow.__moreMenu = moreMenu;\nwindow.__walletContentMarkup = walletContentMarkup;\nwindow.__pixPaymentMarkup = pixPaymentMarkup;\nwindow.__catalogSection = catalogSection;\nwindow.__subscriptionDetailMarkup = subscriptionDetailMarkup;\nwindow.__cartContentMarkup = cartContentMarkup;\nwindow.__saveCartIds = saveCartIds;\nwindow.__memberOrderCard = memberOrderCard;\nwindow.__mergedMemberOrders = mergedMemberOrders;\n})();");
   const app = { querySelector: () => null };
   const classList = { add() {}, remove() {}, toggle() {} };
   const storageValues = new Map([["tw-store.session.v3", JSON.stringify({ role: "member", username: "cliente", member: "Cliente" })]]);
@@ -127,9 +127,21 @@ test("renders the AMOLED Tw Store structure with balanced interactive markup", a
   assert.match(walletMarkup, /data-store-wallet-amount/);
   assert.match(walletMarkup, /data-store-wallet-value="50"/);
   assert.match(walletMarkup, /Taxa de pagamento \(5%\)/);
-  assert.match(walletMarkup, /Continuar para o Mercado Pago/);
+  assert.match(walletMarkup, /Gerar QR Code PIX/);
   assert.match(walletMarkup, /Últimas movimentações/);
   assert.match(walletMarkup, /R\$\s*50,00/);
+
+  const pixMarkup = window.__pixPaymentMarkup({
+    totalAmount: 52.5,
+    qrCode: "000201br.gov.bcb.pix-test",
+    qrCodeBase64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+  });
+  assert.match(pixMarkup, /Concluir pagamento/);
+  assert.match(pixMarkup, /data:image\/png;base64,iVBOR/);
+  assert.match(pixMarkup, /data-store-pix-code/);
+  assert.match(pixMarkup, /data-store-copy-pix/);
+  assert.match(pixMarkup, /Como pagar com PIX\?/);
+  assert.match(pixMarkup, /processado automaticamente/);
 
   const secondSubscription = {
     ...subscription,
